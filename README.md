@@ -1,124 +1,124 @@
 # BrawlPick
 
-**Assistant de draft pour Brawl Stars Ranked.** Choisis ton mode et ta map, indique les picks adverses et alliés au fur et à mesure, et reçois en direct :
+**Draft assistant for Brawl Stars Ranked.** Pick your mode and map, fill in the enemy and ally picks as they come in, and get in real time:
 
-- les meilleurs **bans** de la map
-- les **counters** spécifiques de chaque ennemi pické
-- **4 colonnes de suggestions** : score combiné par IA, meilleurs sur la map, meilleures synergies avec tes alliés, meilleurs counters contre les ennemis
-- le tout recalculé selon ton **ELO** (All / Diamond+ / Mythic+)
+- the top **bans** for the map
+- the specific **counters** for each enemy that's been picked
+- **4 columns of suggestions**: AI combined score, best on the map, best synergies with your allies, best counters against the enemies
+- all of it recomputed against your **ELO bracket** (All / Diamond+ / Mythic+)
 
-Les recommandations viennent d'un modèle de Matrix Factorization entraîné sur ~150 000 paires (brawler, brawler, map) issues du backend de [brawltime.ninja](https://brawltime.ninja), filtrées aux 5 dernières saisons pour rester collé à la méta actuelle.
-
----
-
-## Sommaire
-
-1. [Comment utiliser l'app](#1-comment-utiliser-lapp)
-2. [Installation et lancement](#2-installation-et-lancement)
-3. [Pousser sur GitHub en sécurité](#3-pousser-sur-github-en-sécurité)
-4. [Architecture du projet](#4-architecture-du-projet)
-5. [Le modèle ML en détail](#5-le-modèle-ml-en-détail)
-6. [Endpoints API](#6-endpoints-api)
-7. [Re-entraînement](#7-re-entraînement)
-8. [Limites connues](#8-limites-connues)
-9. [Roadmap v2](#9-roadmap-v2)
+Recommendations come from a Matrix Factorization model trained on ~150 000 (brawler, brawler, map) pairs from the [brawltime.ninja](https://brawltime.ninja) backend, filtered to the last 5 seasons so the meta stays current.
 
 ---
 
-## 1. Comment utiliser l'app
+## Table of contents
 
-L'app a une seule URL : **`/draft`** (la racine `/` redirige). Le flow se déroule en 3 étapes dans la même page.
+1. [How to use the app](#1-how-to-use-the-app)
+2. [Install and run](#2-install-and-run)
+3. [Pushing to GitHub safely](#3-pushing-to-github-safely)
+4. [Project architecture](#4-project-architecture)
+5. [The ML model in detail](#5-the-ml-model-in-detail)
+6. [API endpoints](#6-api-endpoints)
+7. [Re-training](#7-re-training)
+8. [Known limitations](#8-known-limitations)
+9. [v2 roadmap](#9-v2-roadmap)
 
-### Étape 1 — Choisir le mode
+---
 
-Tu arrives sur une grille de 6-7 grosses cartes : Brawl Ball, Gem Grab, Knockout, Heist, Hot Zone, Bounty… Clique sur le mode que tu vas jouer.
+## 1. How to use the app
 
-### Étape 2 — Choisir la map
+The app has a single URL: **`/draft`** (the root `/` redirects). The flow happens in 3 steps within the same page.
 
-Grille des maps actuellement en rotation ranked pour ce mode (4 à 11 maps selon le mode). Cliquer une carte t'amène à l'écran de draft. Bouton « ← Changer de mode » dispo.
+### Step 1 — Pick the mode
 
-### Étape 3 — La vue draft
+You land on a grid of 6-7 large cards: Brawl Ball, Gem Grab, Knockout, Heist, Hot Zone, Bounty… Click the mode you're about to play.
 
-Tout est dans une seule fenêtre, organisée comme ceci :
+### Step 2 — Pick the map
+
+Grid of the maps currently in ranked rotation for that mode (4 to 11 maps depending on the mode). Clicking a card takes you to the draft screen. A "← Change mode" button is available.
+
+### Step 3 — The draft view
+
+Everything lives in a single window, organized like this:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ ← Mode  ← Changer de map  [ELO: All|Diamond+|Mythic+]   MAP+MODE│
+│ ← Mode  ← Change map  [ELO: All|Diamond+|Mythic+]      MAP+MODE │
 ├──────────────────────────────────────────────┬──────────────────┤
-│ ÉQUIPE ENNEMIE         [3 slots]              │   TOP BANS       │
-│   sous chaque ennemi pické :                  │  classement      │
-│   4 counters dédiés (portrait + WR%)          │  des brawlers    │
-│                                                │  à bannir en    │
-│ TON ÉQUIPE             [3 slots]              │  priorité        │
-│   slots cliquables, optionnels                 │                  │
+│ ENEMY TEAM             [3 slots]              │   TOP BANS       │
+│   under each picked enemy:                    │  ranked list of  │
+│   4 dedicated counters (portrait + WR%)       │  brawlers to ban │
+│                                                │  in priority     │
+│ YOUR TEAM              [3 slots]              │                  │
+│   clickable slots, optional                    │                  │
 │                                                │                  │
-│ SUGGESTIONS IA — 4 colonnes :                 │                  │
-│   1. Combiné IA  2. Meilleurs map             │                  │
-│   3. Synergie alliés  4. Counter ennemis      │                  │
+│ AI SUGGESTIONS — 4 columns:                   │                  │
+│   1. Combined AI   2. Best on map             │                  │
+│   3. Ally synergy  4. Enemy counters          │                  │
 └──────────────────────────────────────────────┴──────────────────┘
 ```
 
-**Comment ça se met à jour :** chaque fois que tu cliques un slot et pickes un brawler, toute la page se recalcule (counters, bans, suggestions). Les requêtes sont déduplicatées et cachées 30 min côté serveur, donc dès que tu joues un peu c'est instantané.
+**How it updates:** every time you click a slot and pick a brawler, the whole page recomputes (counters, bans, suggestions). Requests are deduplicated and cached for 30 min server-side, so once you've played around a bit everything is instant.
 
-### Les 4 colonnes de suggestions
+### The 4 suggestion columns
 
-| Colonne | Ce qu'elle classe | Quand l'utiliser |
+| Column | What it ranks | When to use |
 |---|---|---|
-| **Combiné IA** | Score pondéré 0.4 × solo + 0.3 × synergie + 0.3 × vs ennemis | Le « bon » pick global toutes choses considérées |
-| **Meilleurs sur la map** | WR brut sur cette map (ignore alliés / ennemis) | Si tu veux juste un brawler fiable sur cette map |
-| **Synergie alliés** | WR moyen quand pické avec tes alliés | Active une fois que tu as un allié pické. Pour compléter ta compo |
-| **Counter ennemis** | WR moyen face aux ennemis adverses | Active une fois que tu as un ennemi pické. Pour punir un pick adverse |
+| **Combined AI** | Weighted score: 0.4 × solo + 0.3 × synergy + 0.3 × vs enemies | The "right" overall pick all things considered |
+| **Best on map** | Raw WR on this map (ignores allies / enemies) | If you just want a reliable brawler on this map |
+| **Ally synergy** | Average WR when picked alongside your allies | Activates once you have an ally picked. To round out your comp |
+| **Enemy counters** | Average WR against the picked enemies | Activates once you have an enemy picked. To punish an enemy pick |
 
-Les chiffres sont sur 100 (50 = neutre, 60+ = fort, 70+ = très fort).
+Numbers are out of 100 (50 = neutral, 60+ = strong, 70+ = very strong).
 
-### Le sélecteur ELO
+### The ELO selector
 
-Dans le header, le toggle **All / Diamond+ / Mythic+** filtre tout le pipeline (counters, bans, modèle IA) à la tranche d'ELO choisie. Les recommandations diffèrent significativement : la méta basse-ELO valorise les brawlers polyvalents, la méta haute-ELO les brawlers à fort skill ceiling (Mortis, Edgar…). À choisir selon ton niveau de jeu.
+In the header, the **All / Diamond+ / Mythic+** toggle filters the entire pipeline (counters, bans, AI model) to the chosen ELO bracket. The recommendations differ meaningfully: the low-ELO meta favors versatile brawlers, the high-ELO meta favors high skill-ceiling brawlers (Mortis, Edgar…). Pick the one matching your play level.
 
-| Bucket | Tranche trophées approximative | Tier ranked typique |
+| Bucket | Approximate trophy range | Typical ranked tier |
 |---|---|---|
-| **All** | toutes | tous joueurs (défaut) |
-| **Diamond+** | ≥ 1 300 trophées | Diamant et plus |
-| **Mythic+** | ≥ 1 800 trophées | Mythique et plus |
+| **All** | all | all players (default) |
+| **Diamond+** | ≥ 1 300 trophies | Diamond and above |
+| **Mythic+** | ≥ 1 800 trophies | Mythic and above |
 
 ---
 
-## 2. Installation et lancement
+## 2. Install and run
 
-### Prérequis
+### Requirements
 
-- **Node.js 22+** (testé sur Node 24)
+- **Node.js 22+** (tested on Node 24)
 
-### Premier lancement
+### First launch
 
 ```bash
-git clone <ton-fork>
+git clone <your-fork>
 cd brawlstar
 npm install
 npm run dev
 ```
 
-Ouvre [http://localhost:3000](http://localhost:3000). Au premier hit, le serveur pré-réchauffe en tâche de fond les ~80 matchups les plus joués (~15 s). Pendant ce temps tu peux déjà cliquer — ta requête piggyback sur le warm. Ensuite tout est sub-100 ms pendant 30 min (cache cube).
+Open [http://localhost:3000](http://localhost:3000). On the first hit, the server pre-warms the ~80 most-played matchups in the background (~15 s). While that runs you can already click — your request piggybacks on the warm. After that everything is sub-100 ms for 30 min (cube cache).
 
-### Si le port 3000 est occupé
+### If port 3000 is busy
 
 ```bash
 taskkill /F /IM node.exe       # Windows
 pkill -f "next dev"            # macOS / Linux
 ```
 
-### Token Brawl Stars (optionnel)
+### Brawl Stars token (optional)
 
-Utile **seulement si tu veux scraper des battles brutes** via le script v2 `npm run ai:collect`. Pour utiliser l'app, c'est inutile.
+Useful **only if you want to scrape raw battles** via the v2 script `npm run ai:collect`. To use the app itself, no token is needed.
 
-1. Crée un token gratuit sur [developer.brawlstars.com](https://developer.brawlstars.com) (lié à ton IP)
-2. Crée `.env.local` à la racine :
+1. Create a free token at [developer.brawlstars.com](https://developer.brawlstars.com) (IP-locked)
+2. Create `.env.local` at the project root:
    ```
-   BRAWLSTARS_TOKEN=eyJhbGciOiJIUz...ton-token
+   BRAWLSTARS_TOKEN=eyJhbGciOiJIUz...your-token
    ```
-3. Le fichier est dans `.gitignore` — ne sera jamais commité.
+3. The file is in `.gitignore` — it will never be committed.
 
-### Build de production
+### Production build
 
 ```bash
 npm run build
@@ -127,54 +127,54 @@ npm start
 
 ---
 
-## 3. Pousser sur GitHub en sécurité
+## 3. Pushing to GitHub safely
 
-### Ce qui est déjà gitignored
+### What's already gitignored
 
-Le `.gitignore` du repo couvre tout ce qui ne doit pas être public :
+The repo's `.gitignore` covers everything that must not be public:
 
 ```
-node_modules         # dépendances
-.next, out           # build artifacts Next.js
-.env, .env.*         # ★ TOUS les fichiers d'env, y compris .env.local avec le token
-.claude/             # tes permissions Claude Code locales
-.idea/, .vscode/     # config IDE
+node_modules         # dependencies
+.next, out           # Next.js build artifacts
+.env, .env.*         # ★ ALL env files, including .env.local with the token
+.claude/             # your local Claude Code permissions
+.idea/, .vscode/     # IDE configs
 *.log                # logs (dev.log, train.log, extract.log)
-data/training/       # extraits cube de ~25 MB chacun, à recréer avec ai:extract
-data/battles/        # battles brutes du scraper v2
+data/training/       # cube extracts of ~25 MB each, recreatable via ai:extract
+data/battles/        # raw battles from the v2 scraper
 ```
 
-### Ce qui EST commité (et c'est ok)
+### What IS committed (and that's fine)
 
-- `data/model-*.json` — les modèles entraînés (~150 KB chacun). Comme ça, un nouveau clone a un modèle fonctionnel immédiatement sans devoir lancer `ai:refresh:all`. Si tu préfères forcer le retrain, décommente la ligne `data/model-*.json` dans `.gitignore`.
+- `data/model-*.json` — the trained models (~150 KB each). This way a fresh clone has a working model right away without having to run `ai:refresh:all`. If you'd rather force a retrain, uncomment the `data/model-*.json` line in `.gitignore`.
 
-### Vérifie avant de push
+### Check before you push
 
 ```bash
-git init                         # si pas encore fait
+git init                         # if not already done
 git add .
-git status                       # vérifie qu'il N'Y A PAS .env.local listé
+git status                       # make sure .env.local is NOT listed
 grep -rE "eyJ[A-Za-z0-9_-]{20,}\." . \
   --exclude-dir=node_modules \
   --exclude-dir=.next \
-  --exclude-dir=.git || echo "aucun JWT trouvé dans les fichiers tracked"
+  --exclude-dir=.git || echo "no JWT found in tracked files"
 ```
 
-Si jamais un secret est commité par accident, **change immédiatement ton token** sur developer.brawlstars.com — l'historique git garde tout, le seul vrai remède est de rotationner.
+If a secret ever does get committed by accident, **rotate your token immediately** at developer.brawlstars.com — git history keeps everything, the only real remedy is to rotate.
 
-### Risque résiduel
+### Residual risk
 
-L'app fait des requêtes vers `brawltime.ninja` pour récupérer un JWT court qui interroge leur Cube.js. C'est **leur** infra publique, pas tes credentials. Si leur endpoint changeait demain l'app cesserait de marcher, mais il n'y a rien de toi à protéger ici.
+The app sends requests to `brawltime.ninja` to fetch a short-lived JWT that queries their Cube.js. That's **their** public infra, not your credentials. If their endpoint changed tomorrow the app would stop working, but there's nothing of yours to protect on that side.
 
 ---
 
-## 4. Architecture du projet
+## 4. Project architecture
 
-### Flux global
+### Global flow
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│  Navigateur (React + Tailwind)                                   │
+│  Browser (React + Tailwind)                                      │
 │   app/draft/page.tsx (state machine mode → map → draft)          │
 │   components/* : ModePicker, MapGrid, BrawlerGrid, BrawlerSlot,  │
 │                  BrawlerAvatar, BucketSelector, …                │
@@ -183,26 +183,26 @@ L'app fait des requêtes vers `brawltime.ninja` pour récupérer un JWT court qu
                          ▼
 ┌──────────────────────────────────────────────────────────────────┐
 │  Next.js API routes (Node, App Router)                           │
-│   /api/modes        ← getRankedMaps() agrège les modes           │
-│   /api/maps?ranked  ← liste filtrée des maps ranked actuelles    │
-│   /api/brawlers     ← liste brawlify + déclenche warm matchups   │
-│   /api/draft-ai     ← endpoint principal, parallélise :          │
+│   /api/modes        ← getRankedMaps() aggregates the modes       │
+│   /api/maps?ranked  ← filtered list of currently ranked maps     │
+│   /api/brawlers     ← brawlify list + triggers matchups warm     │
+│   /api/draft-ai     ← main endpoint, runs in parallel:           │
 │        • getCountersForEnemy(e, trophyMin) ← cube                │
 │        • getBansForMap(mode, map, trophyMin) ← cube              │
 │        • getModel(bucket).scoreCandidates(ctx) ← model-*.json    │
-│   /api/bans         ← utilisé en interne, exposé pour debug      │
+│   /api/bans         ← used internally, exposed for debug         │
 └──────────────────────────────────────────────────────────────────┘
                          │              │
                          ▼              ▼
 ┌──────────────────────────┐    ┌─────────────────────────────────┐
 │  brawltime.ninja Cube.js │    │  Brawlify (api.brawlify.com)    │
 │  matchups, synergies,    │    │  brawlers, maps, images, modes  │
-│  WR par map/season       │    │  (pas d'auth)                   │
-│  Auth via JWT court      │    │                                 │
+│  WR by map/season        │    │  (no auth)                      │
+│  Auth via short JWT      │    │                                 │
 └──────────────────────────┘    └─────────────────────────────────┘
 ```
 
-### Structure des fichiers
+### File structure
 
 ```
 brawlstar/
@@ -210,52 +210,52 @@ brawlstar/
 │   ├── api/
 │   │   ├── bans/route.ts
 │   │   ├── brawlers/route.ts
-│   │   ├── draft-ai/route.ts     # ★ endpoint principal
+│   │   ├── draft-ai/route.ts     # ★ main endpoint
 │   │   ├── maps/route.ts
 │   │   └── modes/route.ts
-│   ├── draft/page.tsx            # ★ vue principale (3 étapes)
+│   ├── draft/page.tsx            # ★ main view (3 steps)
 │   ├── layout.tsx                # header + nav
-│   ├── page.tsx                  # redirige vers /draft
-│   └── globals.css               # tokens couleur + utilitaires
+│   ├── page.tsx                  # redirects to /draft
+│   └── globals.css               # color tokens + utilities
 │
 ├── components/
-│   ├── BrawlerAvatar.tsx         # portrait + fallback initiales
-│   ├── BrawlerGrid.tsx           # modal de sélection brawler
-│   ├── BrawlerSlot.tsx           # slot 3v3 cliquable
-│   ├── BucketSelector.tsx        # toggle ELO
-│   ├── MapGrid.tsx               # grille de maps (étape 2)
-│   ├── MapPicker.tsx             # modal alternatif de map
-│   ├── MiniCounter.tsx           # mini-carte counter sous ennemi
-│   ├── ModePicker.tsx            # grille de modes (étape 1)
-│   └── WrBar.tsx                 # barre de win rate
+│   ├── BrawlerAvatar.tsx         # portrait + initials fallback
+│   ├── BrawlerGrid.tsx           # brawler picker modal
+│   ├── BrawlerSlot.tsx           # clickable 3v3 slot
+│   ├── BucketSelector.tsx        # ELO toggle
+│   ├── MapGrid.tsx               # map grid (step 2)
+│   ├── MapPicker.tsx             # alternative map modal
+│   ├── MiniCounter.tsx           # mini counter card under enemy
+│   ├── ModePicker.tsx            # mode grid (step 1)
+│   └── WrBar.tsx                 # win-rate bar
 │
 ├── lib/
-│   ├── aiModel.ts                # charge modèle + scoreCandidates()
-│   ├── aliases.ts                # renames cube ↔ canonical
-│   ├── bans.ts                   # calcul des bans
-│   ├── brawlify.ts               # client brawlify (cache 6 h)
-│   ├── buckets.ts                # définitions ELO (all/diamond/mythic)
-│   ├── cube.ts                   # client cube.brawltime (JWT, cache 30 min)
-│   ├── matchups.ts               # cache matchups + warm
-│   ├── ranked.ts                 # filtre maps ranked + cubeName
-│   └── types.ts                  # types partagés
+│   ├── aiModel.ts                # loads model + scoreCandidates()
+│   ├── aliases.ts                # cube ↔ canonical renames
+│   ├── bans.ts                   # ban computation
+│   ├── brawlify.ts               # brawlify client (6 h cache)
+│   ├── buckets.ts                # ELO definitions (all/diamond/mythic)
+│   ├── cube.ts                   # cube.brawltime client (JWT, 30 min cache)
+│   ├── matchups.ts               # matchup cache + warm
+│   ├── ranked.ts                 # ranked maps filter + cubeName
+│   └── types.ts                  # shared types
 │
 ├── scripts/
 │   ├── extract.ts                # cube → data/training/raw-{bucket}.json
 │   ├── train.ts                  # raw → data/model-{bucket}.json
-│   ├── sanity.ts                 # prédictions de validation
-│   └── collect-battles.ts        # (v2) scrape battles via API officielle
+│   ├── sanity.ts                 # validation predictions
+│   └── collect-battles.ts        # (v2) scrape battles via the official API
 │
 ├── data/
-│   ├── training/                 # gitignored, à recréer avec ai:extract
+│   ├── training/                 # gitignored, recreate via ai:extract
 │   │   ├── raw-all.json
 │   │   ├── raw-diamond.json
 │   │   └── raw-mythic.json
-│   ├── model-all.json            # commité, ~150 KB
+│   ├── model-all.json            # committed, ~150 KB
 │   ├── model-diamond.json
 │   └── model-mythic.json
 │
-├── .env.local                    # gitignored ★ tes secrets
+├── .env.local                    # gitignored ★ your secrets
 ├── .gitignore
 ├── next.config.js
 ├── package.json
@@ -263,67 +263,67 @@ brawlstar/
 └── tsconfig.json
 ```
 
-### Scripts npm
+### npm scripts
 
 ```bash
-npm run dev                     # serveur dev (localhost:3000)
-npm run build                   # build production
-npm run start                   # lance la build production
+npm run dev                     # dev server (localhost:3000)
+npm run build                   # production build
+npm run start                   # run the production build
 
-# Pipeline ML
-BUCKET=all   npm run ai:extract   # extrait cube → data/training/raw-all.json (~30 s warm, 4 min cold)
-BUCKET=all   npm run ai:train     # entraîne   → data/model-all.json (~5 s)
-npm run ai:refresh                # extract + train (defaut bucket "all")
-npm run ai:refresh:all            # refait les 3 buckets d'affilée
-npm run ai:sanity                 # affiche des prédictions de validation
+# ML pipeline
+BUCKET=all   npm run ai:extract   # extracts cube → data/training/raw-all.json (~30 s warm, 4 min cold)
+BUCKET=all   npm run ai:train     # trains       → data/model-all.json (~5 s)
+npm run ai:refresh                # extract + train (default bucket "all")
+npm run ai:refresh:all            # rebuilds all 3 buckets back to back
+npm run ai:sanity                 # prints validation predictions
 
-npm run ai:collect              # (v2) scrape battles via API officielle, requiert .env.local
+npm run ai:collect              # (v2) scrape battles via the official API, requires .env.local
 ```
 
 ---
 
-## 5. Le modèle ML en détail
+## 5. The ML model in detail
 
-### Le problème
+### The problem
 
-À partir de (map, alliés déjà pickés, ennemis déjà pickés), prédire un **score** pour chaque brawler candidat reflétant la probabilité que ton équipe gagne si tu le pickes.
+Given (map, allies already picked, enemies already picked), predict a **score** for each candidate brawler reflecting the probability that your team wins if you pick it.
 
-### La donnée d'entraînement
+### Training data
 
-Pour chacun des 3 buckets ELO, trois jeux d'agrégats extraits du cube (script `scripts/extract.ts`) :
+For each of the 3 ELO buckets, three sets of aggregates are extracted from the cube (`scripts/extract.ts`):
 
-| Type | Format | Quantité (bucket "all") |
+| Type | Format | Quantity ("all" bucket) |
 |---|---|---|
-| **Solo** | (brawler, map) → WR observé, picks observés | ~3 500 lignes |
-| **Synergie** | (brawler, ally, map) → WR de _brawler_ quand il joue avec _ally_ | ~65 000 lignes |
-| **Matchup** | (brawler, enemy, map) → WR de _brawler_ face à _enemy_ | ~85 000 lignes |
+| **Solo** | (brawler, map) → observed WR, observed picks | ~3 500 rows |
+| **Synergy** | (brawler, ally, map) → WR of _brawler_ when paired with _ally_ | ~65 000 rows |
+| **Matchup** | (brawler, enemy, map) → WR of _brawler_ facing _enemy_ | ~85 000 rows |
 | **TOTAL** | | **~150 000 samples** |
 
-**Fenêtre temporelle** : `season >= 2026-03-30` → les **5 dernières saisons** (chaque saison dure 2 semaines = ~10 semaines glissantes). Ajuster la constante `SEASON_FROM` dans `scripts/extract.ts` et `lib/ranked.ts` lors du retrain mensuel.
+**Time window**: `season >= 2026-03-30` → the **last 5 seasons** (each season is 2 weeks = ~10 weeks rolling). Update the `SEASON_FROM` constant in `scripts/extract.ts` and `lib/ranked.ts` during monthly retrains.
 
-**Filtre ELO** : la dimension `trophyRange` du cube (1 unité = 100 trophées) est filtrée selon le bucket :
-- `all` : pas de filtre
-- `diamond` : `trophyRange >= 13` (1300+ trophées, joueurs compétitifs)
-- `mythic` : `trophyRange >= 18` (1800+ trophées, top compétitif)
+**ELO filter**: the cube's `trophyRange` dimension (1 unit = 100 trophies) is filtered per bucket:
+- `all`: no filter
+- `diamond`: `trophyRange >= 13` (1 300+ trophies, competitive players)
+- `mythic`: `trophyRange >= 18` (1 800+ trophies, top competitive)
 
-### Le modèle : Matrix Factorization avec embeddings
+### The model: Matrix Factorization with embeddings
 
-#### Paramètres appris (~12 k par bucket)
+#### Learned parameters (~12 k per bucket)
 
-| Paramètre | Forme | Sens |
+| Parameter | Shape | Meaning |
 |---|---|---|
-| `O[b]` | ℝ¹⁶ | embedding « offensive » — qui sait punir |
-| `D[b]` | ℝ¹⁶ | embedding « defensive » — qui sait encaisser |
-| `S[b]` | ℝ¹⁶ | embedding « synergie » — comment il complète une équipe |
-| `bias[b]` | scalaire | force générale (au-dessus / en-dessous du WR 50 %) |
-| `mapB[m,b]` | scalaire | bonus / malus du brawler b sur la map m |
+| `O[b]` | ℝ¹⁶ | "offensive" embedding — who knows how to punish |
+| `D[b]` | ℝ¹⁶ | "defensive" embedding — who knows how to soak |
+| `S[b]` | ℝ¹⁶ | "synergy" embedding — how it complements a team |
+| `bias[b]` | scalar | overall strength (above/below 50 % WR) |
+| `mapB[m,b]` | scalar | bonus / penalty of brawler b on map m |
 
-#### Prédictions (en logits, passés dans sigmoid)
+#### Predictions (as logits, passed through sigmoid)
 
 ```
 solo_wr(b, m)        = sigmoid(  mapB[m,b] + bias[b] )
 
-synergie_wr(a, p, m) = sigmoid(  mapB[m,a] + bias[a]
+synergy_wr(a, p, m)  = sigmoid(  mapB[m,a] + bias[a]
                                 + S[a] · S[p] )
 
 matchup_wr(a, e, m)  = sigmoid(  (mapB[m,a] − mapB[m,e])
@@ -331,34 +331,34 @@ matchup_wr(a, e, m)  = sigmoid(  (mapB[m,a] − mapB[m,e])
                                 +  O[a] · D[e] − O[e] · D[a] )
 ```
 
-Le produit scalaire `O[a] · D[e]` capture « à quel point l'offensive de _a_ matche les faiblesses défensives de _e_ ». Idem `S[a] · S[p]` pour la complémentarité.
+The dot product `O[a] · D[e]` captures "how well _a_'s offense matches _e_'s defensive weaknesses". Likewise `S[a] · S[p]` for complementarity.
 
-#### Entraînement
+#### Training
 
-- **Loss** : MSE pondérée — `(prédiction − observation)² × √picks`, normalisée pour éviter que les samples massifs ne dominent
-- **Optimiseur** : SGD avec momentum 0.85, learning rate 0.05 avec décroissance 0.95 par epoch
-- **L2** : 1e-5 (régularisation légère)
-- **80 epochs** sur 90 % des samples (10 % en validation)
-- **5 secondes** sur CPU par bucket
+- **Loss**: weighted MSE — `(prediction − observation)² × √picks`, normalized so massive samples don't dominate
+- **Optimizer**: SGD with momentum 0.85, learning rate 0.05 with 0.95 per-epoch decay
+- **L2**: 1e-5 (light regularization)
+- **80 epochs** on 90 % of the samples (10 % held out for validation)
+- **5 seconds** on CPU per bucket
 
-#### Inférence
+#### Inference
 
-Pour un candidat _X_ dans le contexte (map _M_, alliés _A1..An_, ennemis _E1..En_), on calcule les trois axes :
+For a candidate _X_ in context (map _M_, allies _A1..An_, enemies _E1..En_), we compute the three axes:
 
 ```
-solo     = sigmoid( mapB[M,X] + bias[X] )                                # WR si tu pickes X tout seul sur cette map
-synergie = moyenne_a∈alliés  sigmoid( mapB[M,X] + bias[X] + S[X]·S[a] )  # WR avec chacun de tes alliés
-matchup  = moyenne_e∈ennemis sigmoid( (mapB[M,X]−mapB[M,e]) + ... )      # WR de X face à chacun des ennemis
+solo     = sigmoid( mapB[M,X] + bias[X] )                                # WR if you pick X solo on this map
+synergy  = mean_a∈allies   sigmoid( mapB[M,X] + bias[X] + S[X]·S[a] )    # WR with each of your allies
+matchup  = mean_e∈enemies  sigmoid( (mapB[M,X]−mapB[M,e]) + ... )        # WR of X facing each enemy
 ```
 
-Puis combinaison :
+Then combined:
 ```
-score(X) = 0.4 × solo + 0.3 × synergie + 0.3 × matchup
+score(X) = 0.4 × solo + 0.3 × synergy + 0.3 × matchup
 ```
 
-L'UI montre ces 4 axes en 4 colonnes (Combiné, Solo, Synergie, Counter), chacune classée indépendamment.
+The UI shows these 4 axes as 4 columns (Combined, Solo, Synergy, Counter), each ranked independently.
 
-### Performance par bucket
+### Performance per bucket
 
 | Bucket | Samples | Brawlers × Maps | Test MAE |
 |---|---|---|---|
@@ -366,109 +366,109 @@ L'UI montre ces 4 axes en 4 colonnes (Combiné, Solo, Synergie, Counter), chacun
 | **diamond** |  69 115 | 102 × 30 | **4.14 %** |
 | **mythic**  |  13 841 | 102 × 30 | **3.90 %** |
 
-Random baseline = 13 %, scoring linéaire fixe (0.5/0.5) ≈ 9 %. Plus le bucket est haut, moins on a de samples mais plus la méta est cohérente → MAE meilleur.
+Random baseline = 13 %, fixed linear scoring (0.5/0.5) ≈ 9 %. The higher the bucket, the fewer samples but the more consistent the meta → better MAE.
 
 ### Sanity checks
 
-`npm run ai:sanity` affiche des prédictions choisies pour vérifier visuellement :
-- Counters connus ressortent (DAMIAN, GLOWY pour la méta actuelle vs SHELLY)
-- Embeddings de synergie cluster les classes implicitement (Frank synergie-similar à Jacky/Nita/Bea = tanks)
-- Embeddings offensifs aussi (Edgar offense-similar à Darryl/El Primo/Sam = assassins)
+`npm run ai:sanity` prints chosen predictions for visual verification:
+- Known counters surface (DAMIAN, GLOWY in the current meta vs SHELLY)
+- Synergy embeddings cluster classes implicitly (Frank synergy-similar to Jacky/Nita/Bea = tanks)
+- Offensive embeddings too (Edgar offense-similar to Darryl/El Primo/Sam = assassins)
 
 ---
 
-## 6. Endpoints API
+## 6. API endpoints
 
-| Route | Méthode | Body / params | Réponse |
+| Route | Method | Body / params | Response |
 |---|---|---|---|
-| `/api/brawlers` | GET | — | `{ brawlers: Brawler[] }` (cache 6 h, déclenche warm global) |
-| `/api/maps` | GET | `?ranked=true` | `{ maps: GameMap[] }` (30 maps actuellement) |
-| `/api/modes` | GET | — | `{ modes: GameMode[] }` (6 modes ranked) |
+| `/api/brawlers` | GET | — | `{ brawlers: Brawler[] }` (6 h cache, triggers global warm) |
+| `/api/maps` | GET | `?ranked=true` | `{ maps: GameMap[] }` (30 maps currently) |
+| `/api/modes` | GET | — | `{ modes: GameMode[] }` (6 ranked modes) |
 | `/api/draft-ai` | POST | `{ mode, map, enemies[], allies[], bucket }` | `{ bucket, perEnemy[], bans[], recommendations[], topByMap[], topBySynergy[], topByCounter[], modelLoaded }` |
 | `/api/bans` | POST | `{ mode, map }` | `{ bans: BanRow[] }` |
 
-`bucket` accepte `"all"` (défaut), `"diamond"`, `"mythic"`.
+`bucket` accepts `"all"` (default), `"diamond"`, `"mythic"`.
 
 ---
 
-## 7. Re-entraînement
+## 7. Re-training
 
-La méta Brawl Stars évolue toutes les 2-4 semaines. Pour rester à jour :
+The Brawl Stars meta shifts every 2-4 weeks. To stay current:
 
-### Workflow complet
+### Full workflow
 
 ```bash
-# 1. Mettre à jour la fenêtre de saisons (~ tous les 1-2 mois)
-#    Dans scripts/extract.ts ET lib/ranked.ts :
-#    const SEASON_FROM = "AAAA-MM-JJ";  # remplace par une date il y a ~10 semaines
+# 1. Update the season window (~ every 1-2 months)
+#    In scripts/extract.ts AND lib/ranked.ts:
+#    const SEASON_FROM = "YYYY-MM-DD";  # set to a date ~10 weeks ago
 
-# 2. Lancer le pipeline complet pour les 3 buckets
+# 2. Run the full pipeline for all 3 buckets
 npm run ai:refresh:all
 
 # 3. Sanity check
 npm run ai:sanity
 
-# 4. Si tout est ok, commit les nouveaux model-*.json
+# 4. If everything looks good, commit the new model-*.json files
 git add data/model-*.json
 git commit -m "retrain models (season window: ...)"
 ```
 
-### Ajouter un brawler renommé
+### Adding a renamed brawler
 
-Quand Supercell renomme un brawler (ex : « Colonel Ruffs » → « Ruffs »), brawltime garde l'historique sous l'ancien nom **en plus** du nouveau. Pour fusionner :
+When Supercell renames a brawler (e.g. "Colonel Ruffs" → "Ruffs"), brawltime keeps the history under the old name **on top of** the new one. To merge:
 
-1. Ajoute une entrée dans `lib/aliases.ts` :
+1. Add an entry in `lib/aliases.ts`:
    ```ts
    export const BRAWLER_ALIASES = {
      "COLONEL RUFFS": "RUFFS",
      "GLOWBERT": "GLOWY",
-     "ANCIEN_NOM": "NOUVEAU_NOM_CANONIQUE",
+     "OLD_NAME": "NEW_CANONICAL_NAME",
    };
    ```
-2. Relance `npm run ai:refresh:all`.
+2. Re-run `npm run ai:refresh:all`.
 
-L'expansion d'alias est appliquée aussi au runtime (counters par ennemi), donc même sans retrain l'UI gère correctement le pick d'un brawler renommé.
-
----
-
-## 8. Limites connues
-
-### Du modèle
-
-- **Pas de logs bruts** : on entraîne sur des agrégats pairwise (brawler ↔ brawler, brawler ↔ map). Le modèle ne voit jamais une compo 3v3 complète, juste des paires. Il infère par moyennage.
-- **Pas d'équilibrage de classes explicite** : si tes alliés sont déjà 2 tanks, le modèle ne te dit pas littéralement « il te faut un DPS ». Il l'infère via les embeddings de synergie mais c'est indirect.
-- **Maps récentes peu couvertes** : si Supercell ajoute une map ranked en mid-saison, elle n'a pas encore assez de data tant qu'on n'a pas re-extrait + re-trainé.
-- **Brawlers sortis très récemment** : pareil, les embeddings sont peu fiables tant qu'ils n'ont pas accumulé ~1000 picks.
-
-### Techniques
-
-- **Dépendance à brawltime** : si leur endpoint d'auth (`brawltime.ninja/api/trpc/auth.getToken`) change ou ferme, on perd l'accès au cube. Mitigation : leur code est open source ; le scraper officiel (`npm run ai:collect`) est une alternative pour collecter des battles directement via l'API Supercell.
-- **Cache RAM uniquement** : redémarrer le serveur efface le cache, premier hit ~15 s pour re-warmer. Persister sur disque ferait sauter ce délai.
-- **Aliases manuels** : à chaque rename de brawler par Supercell, il faut éditer `lib/aliases.ts`.
+Alias expansion is also applied at runtime (per-enemy counters), so even without a retrain the UI handles picks of a renamed brawler correctly.
 
 ---
 
-## 9. Roadmap v2
+## 8. Known limitations
 
-Le script `scripts/collect-battles.ts` (déjà écrit) scrape l'API officielle de Brawl Stars pour récupérer des **battles brutes labelisées** (qui a gagné). Avec ~10-50 k battles, on pourrait :
+### Of the model
 
-- Entraîner un modèle **supervisé** : `P(team1 wins | map, [3 brawlers team1], [3 brawlers team2])`
-- Utiliser une **Factorization Machine** ou un **petit MLP** avec embeddings appris sur les labels réels — typiquement +1 à 2 pp de précision sur le test MAE
-- Re-train hebdomadaire automatique (cron)
-- Ajout d'un signal **balance de rôles** explicite (tank / DPS / support)
+- **No raw logs**: we train on pairwise aggregates (brawler ↔ brawler, brawler ↔ map). The model never sees a full 3v3 comp, only pairs. It infers by averaging.
+- **No explicit class balancing**: if your allies are already 2 tanks, the model doesn't literally tell you "you need a DPS". It infers that via synergy embeddings but it's indirect.
+- **Recently added maps poorly covered**: if Supercell adds a ranked map mid-season, it doesn't have enough data yet until we re-extract and retrain.
+- **Very recently released brawlers**: same, embeddings aren't trustworthy until they've accumulated ~1 000 picks.
 
-Pour activer la v2, fournir un token dans `.env.local` :
+### Technical
+
+- **Dependency on brawltime**: if their auth endpoint (`brawltime.ninja/api/trpc/auth.getToken`) changes or goes down, we lose cube access. Mitigation: their code is open source; the official scraper (`npm run ai:collect`) is an alternative to collect battles directly via the Supercell API.
+- **RAM-only cache**: restarting the server clears the cache, first hit ~15 s to re-warm. Persisting to disk would skip that delay.
+- **Manual aliases**: every Supercell rename requires editing `lib/aliases.ts`.
+
+---
+
+## 9. v2 roadmap
+
+The `scripts/collect-battles.ts` script (already written) scrapes the official Brawl Stars API for **raw labeled battles** (who won). With ~10-50 k battles you could:
+
+- Train a **supervised** model: `P(team1 wins | map, [3 brawlers team1], [3 brawlers team2])`
+- Use a **Factorization Machine** or a **small MLP** with embeddings learned on real labels — typically +1 to 2 pp better test MAE
+- Schedule weekly automatic retraining (cron)
+- Add an explicit **role balance** signal (tank / DPS / support)
+
+To enable v2, drop a token in `.env.local`:
 
 ```
 BRAWLSTARS_TOKEN=eyJhbGciOiJIUz...
 ```
 
-Token gratuit à créer sur [developer.brawlstars.com](https://developer.brawlstars.com) (lié à ton IP). Le scraper est prêt, le modèle supervisé reste à implémenter.
+Free token to create at [developer.brawlstars.com](https://developer.brawlstars.com) (IP-locked). The scraper is ready; the supervised model still needs to be implemented.
 
 ---
 
-## Crédits
+## Credits
 
-- **[brawltime.ninja](https://brawltime.ninja)** (schneefux) — backend Cube.js + données agrégées, open source
-- **[brawlify.com](https://brawlify.com)** — métadonnées et assets des brawlers/maps
-- **Supercell** — Brawl Stars. Cette app n'est ni affiliée ni endorsée par Supercell.
+- **[brawltime.ninja](https://brawltime.ninja)** (schneefux) — Cube.js backend + aggregated data, open source
+- **[brawlify.com](https://brawlify.com)** — brawler/map metadata and assets
+- **Supercell** — Brawl Stars. This app is not affiliated with or endorsed by Supercell.
