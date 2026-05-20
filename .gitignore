@@ -1,0 +1,29 @@
+# Dependencies
+node_modules
+
+# Build artifacts
+.next
+out
+
+# Environment + secrets (NEVER push)
+.env
+.env.*
+.env*.local
+
+# Local IDE / tooling
+.DS_Store
+.claude/
+.idea/
+.vscode/
+
+# Logs (local dev / extraction / training)
+*.log
+
+# Large generated ML data — re-create with `npm run ai:refresh:all`
+data/training/
+data/battles/
+
+# Note: data/model-*.json are SMALL (~150 KB each) and worth committing so
+# new clones get a working model immediately. If you'd rather force users to
+# re-train, uncomment:
+# data/model-*.json

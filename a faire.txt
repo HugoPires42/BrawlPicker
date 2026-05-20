@@ -1,0 +1,1 @@
+avoir trois colonnes de suggestion : synergie, counter, et map, puis une colonne meilleur moyenne.
