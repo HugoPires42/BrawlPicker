@@ -27,15 +27,47 @@ async function getToken(): Promise<string> {
   }
   if (!res || !res.ok) throw lastErr ?? new Error("token fetch failed");
 
-  const data = (await res.json()) as { result: { data: { json: string } } };
-  const token = data.result.data.json;
+  // brawltime returns either:
+  //   - new shape: { result: { data: { json: { token, expiresAt } } } }
+  //   - legacy shape: { result: { data: { json: "eyJ..." } } }   (JWT string directly)
+  const data = (await res.json()) as {
+    result: {
+      data: {
+        json: string | { token: string; expiresAt?: number };
+      };
+    };
+  };
+  const payload = data.result.data.json;
 
-  const [, payloadB64] = token.split(".");
-  const payload = JSON.parse(
-    Buffer.from(payloadB64, "base64url").toString("utf8")
-  ) as { exp: number };
+  let token: string;
+  let expiresAt: number;
 
-  cached = { token, expiresAt: payload.exp * 1000 };
+  if (typeof payload === "string") {
+    token = payload;
+    const [, b64] = token.split(".");
+    const claims = JSON.parse(
+      Buffer.from(b64, "base64url").toString("utf8")
+    ) as { exp: number };
+    expiresAt = claims.exp * 1000;
+  } else {
+    token = payload.token;
+    if (typeof token !== "string") {
+      throw new Error(
+        `unexpected token payload: ${JSON.stringify(payload).slice(0, 200)}`
+      );
+    }
+    if (typeof payload.expiresAt === "number") {
+      expiresAt = payload.expiresAt;
+    } else {
+      const [, b64] = token.split(".");
+      const claims = JSON.parse(
+        Buffer.from(b64, "base64url").toString("utf8")
+      ) as { exp: number };
+      expiresAt = claims.exp * 1000;
+    }
+  }
+
+  cached = { token, expiresAt };
   return token;
 }
 
