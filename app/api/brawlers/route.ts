@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getBrawlers } from "@/lib/brawlify";
 import { warmGlobal } from "@/lib/matchups";
 
-export const revalidate = 21600;
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const brawlers = await getBrawlers();

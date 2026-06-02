@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { getMaps } from "@/lib/brawlify";
 import { getRankedMaps } from "@/lib/ranked";
 
-export const revalidate = 21600;
+export const dynamic = "force-dynamic";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);

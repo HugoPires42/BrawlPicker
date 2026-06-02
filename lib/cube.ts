@@ -1,6 +1,11 @@
 const CUBE_URL = "https://cube.brawltime.ninja/cubejs-api/v1/load";
 const TOKEN_URL = "https://brawltime.ninja/api/trpc/auth.getToken";
 
+// Brawltime sits behind Cloudflare which 403's requests with the default
+// undici/Node UA. We send a real browser-shaped UA on every outbound request.
+const UA =
+  "Mozilla/5.0 (BrawlPick draft assistant; +https://github.com/HugoPires42/BrawlPicker)";
+
 type TokenCache = { token: string; expiresAt: number };
 let cached: TokenCache | null = null;
 
@@ -14,7 +19,11 @@ async function getToken(): Promise<string> {
     try {
       res = await fetch(TOKEN_URL, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "User-Agent": UA,
+          Accept: "application/json",
+        },
         body: "{}",
       });
       if (res.ok) break;
@@ -122,7 +131,12 @@ export async function cubeQuery<T extends CubeRow = CubeRow>(
       const token = await getToken();
       const res = await fetch(CUBE_URL, {
         method: "POST",
-        headers: { Authorization: token, "Content-Type": "application/json" },
+        headers: {
+          Authorization: token,
+          "Content-Type": "application/json",
+          "User-Agent": UA,
+          Accept: "application/json",
+        },
         body,
       });
 

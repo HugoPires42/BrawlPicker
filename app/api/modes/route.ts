@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { getRankedMaps } from "@/lib/ranked";
 import type { GameMode } from "@/lib/types";
 
-export const revalidate = 21600;
+// Don't pre-render at build time — depends on the live cube auth.
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const maps = await getRankedMaps();

@@ -1,6 +1,11 @@
 import type { Brawler, GameMap } from "./types";
 
 const BRAWLIFY = "https://api.brawlify.com/v1";
+const BRAWLIFY_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (BrawlPick draft assistant; +https://github.com/HugoPires42/BrawlPicker)",
+  Accept: "application/json",
+};
 
 type BrawlifyBrawler = {
   id: number;
@@ -48,7 +53,7 @@ export async function getBrawlers(): Promise<Brawler[]> {
   if (brawlersCache && Date.now() - brawlersCache.at < TTL_MS) {
     return brawlersCache.value;
   }
-  const res = await fetch(`${BRAWLIFY}/brawlers`);
+  const res = await fetch(`${BRAWLIFY}/brawlers`, { headers: BRAWLIFY_HEADERS });
   const data = (await res.json()) as { list: BrawlifyBrawler[] };
   const value: Brawler[] = data.list
     .map((b) => ({
@@ -67,7 +72,7 @@ export async function getBrawlers(): Promise<Brawler[]> {
 
 export async function getMaps(): Promise<GameMap[]> {
   if (mapsCache && Date.now() - mapsCache.at < TTL_MS) return mapsCache.value;
-  const res = await fetch(`${BRAWLIFY}/maps`);
+  const res = await fetch(`${BRAWLIFY}/maps`, { headers: BRAWLIFY_HEADERS });
   const data = (await res.json()) as { list: BrawlifyMap[] };
   // Brawlify returns multiple entries per map name (one per rotation/version).
   // Prefer non-disabled entries; fall back to any entry if all are disabled.
