@@ -13,6 +13,8 @@ type Entry = { value: CounterRow[]; at: number };
 // or the trophyMin number — so each ELO bucket has its own warm + lookup.
 const cache = new Map<string, Entry>();
 const inflightSingle = new Map<string, Promise<CounterRow[]>>();
+const synergyCache = new Map<string, Entry>();
+const synergyInflight = new Map<string, Promise<CounterRow[]>>();
 const globalWarmAt = new Map<string, number>();
 const globalWarmInflight = new Map<string, Promise<void>>();
 const mapWarmAt = new Map<string, number>();
@@ -264,5 +266,76 @@ export async function getCountersForEnemy(
   })().finally(() => inflightSingle.delete(key));
 
   inflightSingle.set(key, p);
+  return p;
+}
+
+/**
+ * Mirror of getCountersForEnemy but for the brawlerAllies cube — returns,
+ * for each candidate brawler, their observed WR when teamed with the given
+ * ally. Used to derive the "Ally synergy" column from raw cube aggregates
+ * (same data shape as the per-enemy counter cards under each enemy slot).
+ */
+export async function getSynergyForAlly(
+  ally: string,
+  trophyMin: number | null = null
+): Promise<CounterRow[]> {
+  const upper = canonical(ally.toUpperCase());
+  const key = ck(trophyMin, upper);
+  const hit = synergyCache.get(key);
+  if (fresh(hit)) return hit!.value;
+
+  const pending = synergyInflight.get(key);
+  if (pending) return pending;
+
+  const p = (async () => {
+    const queryAllies = expandAliases(upper);
+    const rows = await cubeQuery<{
+      "brawlerAllies.brawler_dimension": string;
+      "brawlerAllies.winRate_measure": string | number;
+      "brawlerAllies.picks_measure": string | number;
+    }>({
+      measures: [
+        "brawlerAllies.winRate_measure",
+        "brawlerAllies.picks_measure",
+      ],
+      dimensions: ["brawlerAllies.brawler_dimension"],
+      filters: [
+        {
+          member: "brawlerAllies.ally_dimension",
+          operator: "equals",
+          values: queryAllies,
+        },
+        {
+          member: "brawlerAllies.picks_measure",
+          operator: "gte",
+          values: [String(MIN_PICKS)],
+        },
+        ...trophyFilter(trophyMin, "brawlerAllies.trophyRange_dimension"),
+      ],
+      order: { "brawlerAllies.winRate_measure": "desc" },
+    });
+    const merged = new Map<string, { wr: number; picks: number }>();
+    for (const r of rows) {
+      const b = canonical(String(r["brawlerAllies.brawler_dimension"]));
+      const wr = Number(r["brawlerAllies.winRate_measure"]);
+      const picks = Number(r["brawlerAllies.picks_measure"]);
+      const prev = merged.get(b);
+      if (!prev) merged.set(b, { wr, picks });
+      else {
+        const total = prev.picks + picks;
+        merged.set(b, {
+          wr: (prev.wr * prev.picks + wr * picks) / total,
+          picks: total,
+        });
+      }
+    }
+    const list: CounterRow[] = [...merged.entries()]
+      .map(([brawler, v]) => ({ brawler, winRate: v.wr, picks: v.picks }))
+      .sort((a, b) => b.winRate - a.winRate);
+    synergyCache.set(key, { value: list, at: Date.now() });
+    return list;
+  })().finally(() => synergyInflight.delete(key));
+
+  synergyInflight.set(key, p);
   return p;
 }

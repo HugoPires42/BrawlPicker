@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { getCountersForEnemy, warmGlobal, warmMap } from "@/lib/matchups";
+import {
+  getCountersForEnemy,
+  getSynergyForAlly,
+  warmGlobal,
+  warmMap,
+} from "@/lib/matchups";
 import { getBansForMap } from "@/lib/bans";
 import { getModel, hasModel } from "@/lib/aiModel";
 import {
@@ -22,6 +27,45 @@ type Body = {
   allies?: string[];
   bucket?: string;
 };
+
+const N_PER_LIST = 10;
+const N_OVERALL = 15;
+
+/**
+ * Mean WR per candidate across the supplied per-partner lists (cube data).
+ * Intersection — a candidate only ranks if it has observed data with EVERY
+ * picked partner (same shape as the per-enemy counter cards under each
+ * enemy slot, just aggregated across multiple partners).
+ */
+function aggregatePartnerLists(
+  lists: CounterRow[][],
+  excluded: Set<string>
+): Map<string, { mean: number; picks: number }> {
+  const candidateWRs = new Map<string, number[]>();
+  const candidatePicks = new Map<string, number>();
+  for (const list of lists) {
+    const seenInThisList = new Set<string>();
+    for (const c of list) {
+      if (excluded.has(c.brawler)) continue;
+      if (seenInThisList.has(c.brawler)) continue;
+      seenInThisList.add(c.brawler);
+      const arr = candidateWRs.get(c.brawler) ?? [];
+      arr.push(c.winRate);
+      candidateWRs.set(c.brawler, arr);
+      candidatePicks.set(
+        c.brawler,
+        (candidatePicks.get(c.brawler) ?? 0) + c.picks
+      );
+    }
+  }
+  const out = new Map<string, { mean: number; picks: number }>();
+  for (const [b, wrs] of candidateWRs) {
+    if (wrs.length !== lists.length) continue; // intersection only
+    const mean = wrs.reduce((s, x) => s + x, 0) / wrs.length;
+    out.set(b, { mean, picks: candidatePicks.get(b) ?? 0 });
+  }
+  return out;
+}
 
 export async function POST(req: Request) {
   const {
@@ -48,13 +92,14 @@ export async function POST(req: Request) {
   warmGlobal(trophyMin);
   warmMap(mode, map, trophyMin);
 
-  const enemyCountersTask = Promise.all(
-    enemiesUC.map(async (enemy) => {
-      const counters = (await getCountersForEnemy(enemy, trophyMin))
-        .filter((c) => !excludedSet.has(c.brawler))
-        .slice(0, 4);
-      return { enemy, counters };
-    })
+  // Fetch full pairwise lists from cube. perEnemy display reuses the same
+  // data, so the per-enemy counter cards under each slot and the "Enemy
+  // counters" column are guaranteed to agree.
+  const enemyCounterListsTask = Promise.all(
+    enemiesUC.map((e) => getCountersForEnemy(e, trophyMin))
+  );
+  const allySynergyListsTask = Promise.all(
+    alliesUC.map((a) => getSynergyForAlly(a, trophyMin))
   );
 
   const bansTask = getBansForMap(mode, map, trophyMin);
@@ -76,52 +121,81 @@ export async function POST(req: Request) {
     )
     .catch(() => null);
 
-  const [perEnemy, bans, ai] = await Promise.all([
-    enemyCountersTask,
+  const [enemyCounterLists, allySynergyLists, bans, ai] = await Promise.all([
+    enemyCounterListsTask,
+    allySynergyListsTask,
     bansTask,
     aiTask,
   ]);
 
-  const N_PER_LIST = 10;
-  const N_OVERALL = 15;
+  // perEnemy: top 4 counters per enemy (filtered excluded)
+  const perEnemy = enemiesUC.map((enemy, i) => ({
+    enemy,
+    counters: enemyCounterLists[i]
+      .filter((c) => !excludedSet.has(c.brawler))
+      .slice(0, 4),
+  }));
 
-  const toRow = (r: NonNullable<typeof ai>[number]): ScoredCandidate => ({
-    brawler: r.brawler,
-    solo: r.solo,
-    synergy: r.synergy,
-    matchup: r.matchup,
-    score: r.score,
-    source: "ml" as const,
-  });
+  // topByCounter: intersection of per-enemy lists, mean WR
+  let topByCounter: ScoredCandidate[] = [];
+  if (enemyCounterLists.length > 0) {
+    const agg = aggregatePartnerLists(enemyCounterLists, excludedSet);
+    topByCounter = [...agg.entries()]
+      .map(([brawler, v]): ScoredCandidate => ({
+        brawler,
+        solo: 0,
+        synergy: null,
+        matchup: v.mean,
+        score: v.mean,
+        source: "ml" as const,
+      }))
+      .sort((a, b) => (b.matchup ?? 0) - (a.matchup ?? 0))
+      .slice(0, N_PER_LIST);
+  }
 
+  // topBySynergy: intersection of per-ally lists, mean WR
+  let topBySynergy: ScoredCandidate[] = [];
+  if (allySynergyLists.length > 0) {
+    const agg = aggregatePartnerLists(allySynergyLists, excludedSet);
+    topBySynergy = [...agg.entries()]
+      .map(([brawler, v]): ScoredCandidate => ({
+        brawler,
+        solo: 0,
+        synergy: v.mean,
+        matchup: null,
+        score: v.mean,
+        source: "ml" as const,
+      }))
+      .sort((a, b) => (b.synergy ?? 0) - (a.synergy ?? 0))
+      .slice(0, N_PER_LIST);
+  }
+
+  // topByMap: raw WR per brawler on this map (bans data already has this)
+  const topByMap: ScoredCandidate[] = bans
+    .filter((b) => !excludedSet.has(b.brawler))
+    .sort((a, b) => b.winRate - a.winRate)
+    .slice(0, N_PER_LIST)
+    .map((b): ScoredCandidate => ({
+      brawler: b.brawler,
+      solo: b.winRate,
+      synergy: null,
+      matchup: null,
+      score: b.winRate,
+      source: "ml" as const,
+    }));
+
+  // recommendations (combined IA): the ML model is still the best smoothed
+  // ranking — it generalizes beyond observed pairs via embeddings.
   const recommendations: ScoredCandidate[] =
-    ai != null ? ai.slice(0, N_OVERALL).map(toRow) : [];
-
-  // Per-axis lists: re-rank ALL candidates by each axis, top N each.
-  const topByMap: ScoredCandidate[] =
     ai != null
-      ? [...ai]
-          .sort((a, b) => b.solo - a.solo)
-          .slice(0, N_PER_LIST)
-          .map(toRow)
-      : [];
-
-  const topBySynergy: ScoredCandidate[] =
-    ai != null && alliesUC.length > 0
-      ? [...ai]
-          .filter((c) => c.synergy != null)
-          .sort((a, b) => (b.synergy ?? 0) - (a.synergy ?? 0))
-          .slice(0, N_PER_LIST)
-          .map(toRow)
-      : [];
-
-  const topByCounter: ScoredCandidate[] =
-    ai != null && enemiesUC.length > 0
-      ? [...ai]
-          .filter((c) => c.matchup != null)
-          .sort((a, b) => (b.matchup ?? 0) - (a.matchup ?? 0))
-          .slice(0, N_PER_LIST)
-          .map(toRow)
+      ? ai.slice(0, N_OVERALL).map((r) => ({
+          brawler: r.brawler,
+          solo: r.solo,
+          synergy: r.synergy,
+          matchup: r.matchup,
+          score: r.score,
+          source: "ml" as const,
+        }))
       : [];
 
   return NextResponse.json({
