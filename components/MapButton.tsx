@@ -1,10 +1,12 @@
 "use client";
 import Image from "next/image";
 import type { GameMap } from "@/lib/types";
+import { useI18n } from "./I18nProvider";
 
 type Props = { map: GameMap | null; onClick: () => void };
 
 export default function MapButton({ map, onClick }: Props) {
+  const { t } = useI18n();
   return (
     <button
       onClick={onClick}
@@ -31,7 +33,7 @@ export default function MapButton({ map, onClick }: Props) {
             </div>
           </div>
           <div className="text-muted text-sm group-hover:text-accent">
-            changer
+            {t("mapButton.change")}
           </div>
         </>
       ) : (
@@ -40,10 +42,8 @@ export default function MapButton({ map, onClick }: Props) {
             ?
           </div>
           <div className="flex-1">
-            <div className="font-semibold">Choisir une map</div>
-            <div className="text-xs text-muted">
-              Filtre les recommandations selon la map ranked
-            </div>
+            <div className="font-semibold">{t("mapButton.choose")}</div>
+            <div className="text-xs text-muted">{t("mapButton.help")}</div>
           </div>
         </>
       )}

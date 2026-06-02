@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { GameMap } from "@/lib/types";
+import { useI18n } from "./I18nProvider";
 
 type Props = {
   open: boolean;
@@ -11,13 +12,14 @@ type Props = {
 };
 
 export default function MapPickerModal({ open, onClose, maps, onPick }: Props) {
+  const { t } = useI18n();
   const [q, setQ] = useState("");
-  const [mode, setMode] = useState("Tous");
+  const [mode, setMode] = useState("__all__");
 
   useEffect(() => {
     if (open) {
       setQ("");
-      setMode("Tous");
+      setMode("__all__");
     }
   }, [open]);
 
@@ -33,7 +35,7 @@ export default function MapPickerModal({ open, onClose, maps, onPick }: Props) {
   const modes = useMemo(() => {
     const set = new Set<string>();
     for (const m of maps) set.add(m.modeName);
-    return ["Tous", ...[...set].sort()];
+    return ["__all__", ...[...set].sort()];
   }, [maps]);
 
   const modeColors = useMemo(() => {
@@ -45,7 +47,7 @@ export default function MapPickerModal({ open, onClose, maps, onPick }: Props) {
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();
     return maps.filter((m) => {
-      if (mode !== "Tous" && m.modeName !== mode) return false;
+      if (mode !== "__all__" && m.modeName !== mode) return false;
       if (ql && !m.name.toLowerCase().includes(ql)) return false;
       return true;
     });
@@ -63,11 +65,11 @@ export default function MapPickerModal({ open, onClose, maps, onPick }: Props) {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-border flex items-center gap-3">
-          <h2 className="text-lg font-bold">Choisis une map ranked</h2>
+          <h2 className="text-lg font-bold">{t("mapPicker.title")}</h2>
           <button
             onClick={onClose}
             className="ml-auto text-muted hover:text-white text-2xl leading-none px-2"
-            aria-label="Fermer"
+            aria-label={t("aria.close")}
           >
             ×
           </button>
@@ -78,7 +80,7 @@ export default function MapPickerModal({ open, onClose, maps, onPick }: Props) {
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Rechercher une map…"
+            placeholder={t("mapPicker.search")}
             className="input"
           />
           <div className="flex flex-wrap gap-1.5">
@@ -103,7 +105,7 @@ export default function MapPickerModal({ open, onClose, maps, onPick }: Props) {
                         : undefined
                   }
                 >
-                  {m}
+                  {m === "__all__" ? t("mapPicker.allModes") : m}
                 </button>
               );
             })}
@@ -143,7 +145,7 @@ export default function MapPickerModal({ open, onClose, maps, onPick }: Props) {
             ))}
             {filtered.length === 0 && (
               <div className="col-span-full text-center text-muted py-10">
-                Aucune map.
+                {t("mapPicker.empty")}
               </div>
             )}
           </div>

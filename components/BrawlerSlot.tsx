@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import type { Brawler } from "@/lib/types";
+import { useI18n } from "./I18nProvider";
 
 type Props = {
   brawler: Brawler | null;
@@ -19,10 +20,9 @@ export default function BrawlerSlot({
   variant = "enemy",
   size = "md",
 }: Props) {
-  const ring =
-    variant === "enemy" ? "ring-bad/50" : "ring-good/50";
-  const accent =
-    variant === "enemy" ? "text-bad" : "text-good";
+  const { t } = useI18n();
+  const ring = variant === "enemy" ? "ring-bad/50" : "ring-good/50";
+  const accent = variant === "enemy" ? "text-bad" : "text-good";
   const dim = size === "lg" ? "w-24 h-24" : "w-20 h-20";
 
   return (
@@ -41,7 +41,7 @@ export default function BrawlerSlot({
           dim +
           " hover:ring-4 hover:scale-105"
         }
-        aria-label={brawler ? brawler.name : "Choisir un brawler"}
+        aria-label={brawler ? brawler.name : t("aria.chooseBrawler")}
       >
         {brawler ? (
           <Image
@@ -65,7 +65,7 @@ export default function BrawlerSlot({
               <button
                 onClick={onClear}
                 className="text-muted hover:text-bad"
-                aria-label="Retirer"
+                aria-label={t("aria.remove")}
               >
                 ×
               </button>

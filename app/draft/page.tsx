@@ -8,7 +8,9 @@ import BucketSelector from "@/components/BucketSelector";
 import MiniCounter from "@/components/MiniCounter";
 import ModePicker from "@/components/ModePicker";
 import MapGrid from "@/components/MapGrid";
-import { BUCKET_META, type Bucket } from "@/lib/buckets";
+import { useI18n } from "@/components/I18nProvider";
+import { type Bucket } from "@/lib/buckets";
+import type { StringKey } from "@/lib/i18n";
 import type {
   BanRow,
   Brawler,
@@ -34,7 +36,14 @@ type DraftResp = {
   modelLoaded: boolean;
 };
 
+const BUCKET_LABEL_KEY: Record<Bucket, StringKey> = {
+  all: "bucket.all.label",
+  diamond: "bucket.diamond.label",
+  mythic: "bucket.mythic.label",
+};
+
 export default function DraftPage() {
+  const { t } = useI18n();
   const [step, setStep] = useState<Step>("mode");
 
   const [brawlers, setBrawlers] = useState<Brawler[]>([]);
@@ -70,7 +79,7 @@ export default function DraftPage() {
         setModes(m.modes);
         setMaps(mp.maps);
       })
-      .catch(() => setErr("Impossible de charger les données"));
+      .catch(() => setErr(t("draft.loadFailed")));
   }, []);
 
   const byCube = useMemo(
@@ -184,7 +193,11 @@ export default function DraftPage() {
   };
 
   if (err && step === "mode") {
-    return <div className="card text-bad text-sm">Erreur : {err}</div>;
+    return (
+      <div className="card text-bad text-sm">
+        {t("draft.error")} {err}
+      </div>
+    );
   }
 
   if (step === "mode") {
@@ -206,14 +219,14 @@ export default function DraftPage() {
     <div className="space-y-5">
       <div className="flex flex-wrap items-center gap-3">
         <button onClick={backToMode} className="btn-ghost text-xs">
-          ← Mode
+          {t("draft.backToMode")}
         </button>
         <button onClick={backToMap} className="btn-ghost text-xs">
-          ← Changer de map
+          {t("draft.changeMap")}
         </button>
         <div className="flex items-center gap-2">
           <span className="text-[10px] uppercase tracking-wide text-muted">
-            ELO
+            {t("draft.eloLabel")}
           </span>
           <BucketSelector value={bucket} onChange={setBucket} />
         </div>
@@ -237,7 +250,7 @@ export default function DraftPage() {
           </div>
         </div>
         <button onClick={resetPicks} className="btn-ghost text-xs">
-          Reset picks
+          {t("draft.resetPicks")}
         </button>
       </div>
 
@@ -245,7 +258,7 @@ export default function DraftPage() {
         <div className="space-y-5">
           <section className="card">
             <div className="text-[11px] uppercase tracking-wide text-bad mb-3">
-              Équipe ennemie
+              {t("draft.enemyTeam")}
             </div>
             <div className="grid grid-cols-3 gap-3">
               {enemies.map((e, i) => {
@@ -272,7 +285,7 @@ export default function DraftPage() {
                     <div className="w-full space-y-1 min-h-[120px]">
                       {e && counters.length === 0 && loading && (
                         <div className="text-[10px] text-muted text-center py-3">
-                          chargement…
+                          {t("draft.loading")}
                         </div>
                       )}
                       {counters.slice(0, 4).map((c) => (
@@ -292,7 +305,7 @@ export default function DraftPage() {
 
           <section className="card">
             <div className="text-[11px] uppercase tracking-wide text-good mb-3">
-              Ton équipe
+              {t("draft.yourTeam")}
             </div>
             <div className="grid grid-cols-3 gap-3 justify-items-center">
               {allies.map((a, i) => {
@@ -303,7 +316,7 @@ export default function DraftPage() {
                     brawler={brawler}
                     variant="ally"
                     size="lg"
-                    label={i === 0 ? "Toi" : "Allié"}
+                    label={i === 0 ? t("draft.you") : t("draft.ally")}
                     onClick={() => openPickerFor({ kind: "ally", index: i })}
                     onClear={
                       brawler ? () => setSlot("ally", i, null) : undefined
@@ -333,7 +346,9 @@ export default function DraftPage() {
         onPick={handlePick}
         disabled={allPicked}
         title={
-          pickerTarget?.kind === "enemy" ? "Pick un ennemi" : "Pick un allié"
+          pickerTarget?.kind === "enemy"
+            ? t("draft.pickEnemy")
+            : t("draft.pickAlly")
         }
       />
     </div>
@@ -353,6 +368,7 @@ function RecommendationsPanel({
   map: GameMap;
   bucket: Bucket;
 }) {
+  const { t } = useI18n();
   const recs = resp?.recommendations ?? [];
   const byMap = resp?.topByMap ?? [];
   const bySyn = resp?.topBySynergy ?? [];
@@ -362,19 +378,19 @@ function RecommendationsPanel({
     <section className="card">
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <h2 className="text-sm uppercase tracking-wide text-muted">
-          Suggestions IA
+          {t("recs.title")}
         </h2>
         <span className="text-[10px] text-muted">
-          {BUCKET_META[bucket].label} · {map.name}
+          {t(BUCKET_LABEL_KEY[bucket])} · {map.name}
         </span>
         {loading && (
           <span className="ml-auto text-[10px] text-accent animate-pulse">
-            Mise à jour…
+            {t("draft.updating")}
           </span>
         )}
         {!loading && resp && !resp.modelLoaded && (
           <span className="ml-auto text-[10px] text-muted">
-            (modèle non chargé pour cette map)
+            {t("recs.modelNotLoaded")}
           </span>
         )}
       </div>
@@ -382,54 +398,54 @@ function RecommendationsPanel({
       {recs.length === 0 && !loading && (
         <div className="text-sm text-muted py-4 text-center">
           {resp && !resp.modelLoaded
-            ? "Cette map n'est pas couverte par le modèle (à ré-entraîner)."
-            : "Pas encore assez de signal — pick au moins un brawler ou une map pour démarrer."}
+            ? t("recs.mapNotInModel")
+            : t("recs.noSignal")}
         </div>
       )}
 
       {recs.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           <RecColumn
-            title="Combiné IA"
+            title={t("col.combined.title")}
             tone="accent"
-            subtitle="0.4 solo + 0.3 synergie + 0.3 vs ennemis"
+            subtitle={t("col.combined.subtitle")}
             metricKey="score"
             items={recs.slice(0, 10)}
             byCube={byCube}
           />
           <RecColumn
-            title="Meilleurs sur la map"
+            title={t("col.map.title")}
             tone="muted"
-            subtitle="WR brut sur cette map"
+            subtitle={t("col.map.subtitle")}
             metricKey="solo"
             items={byMap}
             byCube={byCube}
           />
           <RecColumn
-            title="Synergie alliés"
+            title={t("col.synergy.title")}
             tone="good"
             subtitle={
               bySyn.length > 0
-                ? "WR moyen avec tes alliés"
-                : "Pick au moins un allié"
+                ? t("col.synergy.subtitleActive")
+                : t("col.synergy.subtitleInactive")
             }
             metricKey="synergy"
             items={bySyn}
             byCube={byCube}
-            empty="Choisis au moins un allié pour activer cette colonne."
+            empty={t("col.synergy.empty")}
           />
           <RecColumn
-            title="Counter ennemis"
+            title={t("col.counter.title")}
             tone="bad"
             subtitle={
               byCnt.length > 0
-                ? "WR moyen vs les ennemis pickés"
-                : "Pick au moins un ennemi"
+                ? t("col.counter.subtitleActive")
+                : t("col.counter.subtitleInactive")
             }
             metricKey="matchup"
             items={byCnt}
             byCube={byCube}
-            empty="Choisis au moins un ennemi pour activer cette colonne."
+            empty={t("col.counter.empty")}
           />
         </div>
       )}
@@ -475,9 +491,7 @@ function RecColumn({
       <div className="text-[10px] text-muted mb-2">{subtitle}</div>
 
       {items.length === 0 ? (
-        <div className="text-[11px] text-muted py-4 text-center">
-          {empty ?? "Pas de données."}
-        </div>
+        <RecColumnEmpty fallback={empty} />
       ) : (
         <ul className="space-y-1">
           {items.map((p, idx) => {
@@ -521,6 +535,15 @@ function RecColumn({
   );
 }
 
+function RecColumnEmpty({ fallback }: { fallback?: string }) {
+  const { t } = useI18n();
+  return (
+    <div className="text-[11px] text-muted py-4 text-center">
+      {fallback ?? t("col.noData")}
+    </div>
+  );
+}
+
 function BansPanel({
   resp,
   byCube,
@@ -532,13 +555,14 @@ function BansPanel({
   loading: boolean;
   map: GameMap;
 }) {
+  const { t } = useI18n();
   const bans = resp?.bans ?? [];
   const maxScore = bans.length > 0 ? bans[0].banScore : 1;
   return (
     <section className="card h-fit lg:sticky lg:top-20">
       <div className="flex items-center gap-2 mb-3">
         <h2 className="text-sm uppercase tracking-wide text-bad">
-          Top bans
+          {t("bans.title")}
         </h2>
         <span className="text-[10px] text-muted">{map.name}</span>
         {loading && bans.length === 0 && (
@@ -549,7 +573,7 @@ function BansPanel({
       </div>
       {bans.length === 0 && !loading && (
         <div className="text-sm text-muted text-center py-4">
-          Pas assez de données.
+          {t("bans.notEnough")}
         </div>
       )}
       <ul className="space-y-1">

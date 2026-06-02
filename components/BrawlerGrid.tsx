@@ -2,6 +2,7 @@
 import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { Brawler } from "@/lib/types";
+import { useI18n } from "./I18nProvider";
 
 type Props = {
   open: boolean;
@@ -18,15 +19,16 @@ export default function BrawlerGrid({
   brawlers,
   onPick,
   disabled,
-  title = "Choisis un brawler",
+  title,
 }: Props) {
+  const { t } = useI18n();
   const [q, setQ] = useState("");
-  const [cls, setCls] = useState<string>("Tous");
+  const [cls, setCls] = useState<string>("__all__");
 
   useEffect(() => {
     if (open) {
       setQ("");
-      setCls("Tous");
+      setCls("__all__");
     }
   }, [open]);
 
@@ -42,13 +44,13 @@ export default function BrawlerGrid({
   const classes = useMemo(() => {
     const set = new Set<string>();
     for (const b of brawlers) if (b.className) set.add(b.className);
-    return ["Tous", ...[...set].sort()];
+    return ["__all__", ...[...set].sort()];
   }, [brawlers]);
 
   const filtered = useMemo(() => {
     const ql = q.trim().toLowerCase();
     return brawlers.filter((b) => {
-      if (cls !== "Tous" && b.className !== cls) return false;
+      if (cls !== "__all__" && b.className !== cls) return false;
       if (ql && !b.name.toLowerCase().includes(ql)) return false;
       return true;
     });
@@ -66,11 +68,11 @@ export default function BrawlerGrid({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="p-4 border-b border-border flex items-center gap-3">
-          <h2 className="text-lg font-bold">{title}</h2>
+          <h2 className="text-lg font-bold">{title ?? t("picker.title")}</h2>
           <button
             onClick={onClose}
             className="ml-auto text-muted hover:text-white text-2xl leading-none px-2"
-            aria-label="Fermer"
+            aria-label={t("aria.close")}
           >
             ×
           </button>
@@ -81,7 +83,7 @@ export default function BrawlerGrid({
             autoFocus
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Rechercher…"
+            placeholder={t("picker.search")}
             className="input"
           />
           <div className="flex flex-wrap gap-1.5">
@@ -96,7 +98,7 @@ export default function BrawlerGrid({
                     : "bg-panel2 border-border hover:border-muted text-muted")
                 }
               >
-                {c}
+                {c === "__all__" ? t("picker.all") : c}
               </button>
             ))}
           </div>
@@ -138,7 +140,7 @@ export default function BrawlerGrid({
             })}
             {filtered.length === 0 && (
               <div className="col-span-full text-center text-muted py-10">
-                Aucun brawler ne correspond.
+                {t("picker.empty")}
               </div>
             )}
           </div>

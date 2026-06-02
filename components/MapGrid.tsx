@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import type { GameMap, GameMode } from "@/lib/types";
+import { useI18n } from "./I18nProvider";
 
 type Props = {
   mode: GameMode;
@@ -10,13 +11,14 @@ type Props = {
 };
 
 export default function MapGrid({ mode, maps, onPick, onBack }: Props) {
+  const { t } = useI18n();
   const filtered = maps.filter((m) => m.modeCube === mode.cube);
 
   return (
     <div>
       <div className="flex items-center gap-3 mb-6">
         <button onClick={onBack} className="btn-ghost text-sm">
-          ← Changer de mode
+          {t("map.changeMode")}
         </button>
         <div className="flex items-center gap-2">
           <Image
@@ -28,7 +30,9 @@ export default function MapGrid({ mode, maps, onPick, onBack }: Props) {
             className="rounded"
           />
           <div>
-            <div className="text-xs text-muted uppercase">Mode</div>
+            <div className="text-xs text-muted uppercase">
+              {t("map.modeLabel")}
+            </div>
             <div className="font-bold" style={{ color: mode.color }}>
               {mode.name}
             </div>
@@ -38,10 +42,10 @@ export default function MapGrid({ mode, maps, onPick, onBack }: Props) {
 
       <div className="text-center mb-4">
         <h2 className="text-2xl font-extrabold tracking-tight">
-          Choisis la map
+          {t("map.title")}
         </h2>
         <p className="text-muted text-sm mt-1">
-          {filtered.length} maps en ranked
+          {filtered.length} {t("map.countSuffix")}
         </p>
       </div>
 

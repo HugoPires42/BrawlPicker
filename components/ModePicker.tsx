@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import type { GameMode } from "@/lib/types";
+import { useI18n } from "./I18nProvider";
 
 type Props = {
   modes: GameMode[];
@@ -8,15 +9,14 @@ type Props = {
 };
 
 export default function ModePicker({ modes, onPick }: Props) {
+  const { t } = useI18n();
   return (
     <div>
       <div className="text-center mb-6">
         <h1 className="text-3xl font-extrabold tracking-tight">
-          Choisis le mode
+          {t("mode.title")}
         </h1>
-        <p className="text-muted text-sm mt-1">
-          Sélectionne le mode ranked que tu joues
-        </p>
+        <p className="text-muted text-sm mt-1">{t("mode.subtitle")}</p>
       </div>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
@@ -40,7 +40,9 @@ export default function ModePicker({ modes, onPick }: Props) {
             />
             <div
               className="relative aspect-[16/9] bg-panel2 flex items-center justify-center"
-              style={{ background: `linear-gradient(135deg, ${m.color}25, ${m.color}05)` }}
+              style={{
+                background: `linear-gradient(135deg, ${m.color}25, ${m.color}05)`,
+              }}
             >
               <Image
                 src={m.imageUrl}
@@ -56,7 +58,12 @@ export default function ModePicker({ modes, onPick }: Props) {
                 {m.name}
               </div>
               <div className="text-[11px] text-muted">
-                {m.mapCount} {m.mapCount > 1 ? "maps" : "map"} ranked
+                {m.mapCount}{" "}
+                {t(
+                  m.mapCount > 1
+                    ? "mode.mapCount.many"
+                    : "mode.mapCount.one"
+                )}
               </div>
             </div>
           </button>
