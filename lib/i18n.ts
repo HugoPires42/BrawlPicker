@@ -284,12 +284,12 @@ export const STRINGS = {
 
   "how.col.syn.title": { fr: "Synergie alliés", en: "Ally synergy" },
   "how.col.syn.what": {
-    fr: "Le WR moyen quand un brawler est dans la même équipe que les alliés que tu as pickés. Capture les combos qui se complètent.",
-    en: "Average WR when a brawler is teamed with the allies you've already picked. Captures combos that complement each other.",
+    fr: "Le WR moyen quand un brawler est dans la même équipe que les alliés pickés, calculé sur des données globales (toutes maps confondues) pour que le choix de la map ne masque pas l'effet synergie.",
+    en: "Average WR when a brawler is teamed with the picked allies, computed on global data (all maps combined) so the map choice doesn't mask the synergy effect.",
   },
   "how.col.syn.formula": {
-    fr: "synergie(X) = moyenne sur alliés a:  sigmoid( mapBase[m,X] + bias[X] + S[X] · S[a] )",
-    en: "synergy(X) = mean over allies a:  sigmoid( mapBase[m,X] + bias[X] + S[X] · S[a] )",
+    fr: "synergie(X) = moyenne sur alliés a:  sigmoid( bias[X] + S[X] · S[a] )",
+    en: "synergy(X) = mean over allies a:  sigmoid( bias[X] + S[X] · S[a] )",
   },
   "how.col.syn.example": {
     fr: "S[X]·S[a] est un produit scalaire entre deux vecteurs de 16 dims. Plus c'est élevé, plus les deux brawlers se complètent dans une équipe. Le modèle l'apprend tout seul à partir des WR pairwise.",
@@ -298,12 +298,12 @@ export const STRINGS = {
 
   "how.col.cnt.title": { fr: "Counter ennemis", en: "Enemy counters" },
   "how.col.cnt.what": {
-    fr: "Le WR moyen quand un brawler affronte les ennemis que tu as pickés. Capture les matchups directs : qui bat qui.",
-    en: "Average WR when a brawler faces the enemies you've picked. Captures direct matchups: who beats whom.",
+    fr: "Le WR moyen quand un brawler affronte les ennemis pickés, calculé sur des données globales (toutes maps confondues) pour que la compo ennemie change vraiment le classement.",
+    en: "Average WR when a brawler faces the picked enemies, computed on global data (all maps combined) so the enemy comp actually drives the ranking.",
   },
   "how.col.cnt.formula": {
-    fr: "counter(X) = moyenne sur ennemis e:  sigmoid( ΔmapBase + Δbias + O[X]·D[e] − O[e]·D[X] )",
-    en: "counter(X) = mean over enemies e:  sigmoid( ΔmapBase + Δbias + O[X]·D[e] − O[e]·D[X] )",
+    fr: "counter(X) = moyenne sur ennemis e:  sigmoid( bias[X] − bias[e] + O[X]·D[e] − O[e]·D[X] )",
+    en: "counter(X) = mean over enemies e:  sigmoid( bias[X] − bias[e] + O[X]·D[e] − O[e]·D[X] )",
   },
   "how.col.cnt.example": {
     fr: "O[X]·D[e] mesure à quel point l'offensive de X exploite les faiblesses défensives de e. Le terme symétrique O[e]·D[X] est soustrait : si l'ennemi te punit en même temps, ton avantage net est plus faible.",

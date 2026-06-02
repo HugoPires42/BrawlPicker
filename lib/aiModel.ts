@@ -109,15 +109,21 @@ async function loadOne(bucket: Bucket): Promise<ModelHandle> {
       if (ctx.excluded.has(name)) continue;
       const xOff = X * D;
 
+      // Solo includes the map term — that's the whole point of "best on map".
       const soloLogit =
         (m_idx != null ? mapB[m_idx * B + X] : 0) + bias[X];
       const solo = sigmoid(soloLogit);
 
+      // Synergy and matchup use the GLOBAL signal (no map term) so that the
+      // chosen ally/enemy actually drives the ranking. Otherwise the map
+      // baseline dominates and the columns look almost identical regardless
+      // of picks. The map influence still flows into the combined score
+      // through `solo`.
       let synergy: number | null = null;
       if (allies.length > 0) {
         let sumSyn = 0;
         for (const a of allies) {
-          const synLogit = soloLogit + dot(Sv, xOff, Sv, a * D, D);
+          const synLogit = bias[X] + dot(Sv, xOff, Sv, a * D, D);
           sumSyn += sigmoid(synLogit);
         }
         synergy = sumSyn / allies.length;
@@ -129,9 +135,6 @@ async function loadOne(bucket: Bucket): Promise<ModelHandle> {
         for (const e of enemies) {
           const eOff = e * D;
           const matLogit =
-            (m_idx != null
-              ? mapB[m_idx * B + X] - mapB[m_idx * B + e]
-              : 0) +
             (bias[X] - bias[e]) +
             dot(O, xOff, Dv, eOff, D) -
             dot(O, eOff, Dv, xOff, D);
