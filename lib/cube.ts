@@ -1,10 +1,28 @@
-const CUBE_URL = "https://cube.brawltime.ninja/cubejs-api/v1/load";
-const TOKEN_URL = "https://brawltime.ninja/api/trpc/auth.getToken";
+// If BRAWLTIME_PROXY is set (Cloudflare Worker URL), route all brawltime
+// traffic through it. This is necessary on datacenter hosts (Render, Vercel)
+// where Cloudflare blocks direct calls. See worker/worker.js for the proxy.
+const PROXY = process.env.BRAWLTIME_PROXY?.replace(/\/+$/, "");
+const CUBE_URL = PROXY
+  ? `${PROXY}/cube/cubejs-api/v1/load`
+  : "https://cube.brawltime.ninja/cubejs-api/v1/load";
+const TOKEN_URL = PROXY
+  ? `${PROXY}/trpc/auth.getToken`
+  : "https://brawltime.ninja/api/trpc/auth.getToken";
 
-// Brawltime sits behind Cloudflare which 403's requests with the default
-// undici/Node UA. We send a real browser-shaped UA on every outbound request.
+// Brawltime sits behind Cloudflare bot protection. From a datacenter IP
+// (Render, Vercel, etc.) we need the request to look identical to what
+// brawltime's own frontend sends from a real browser — same User-Agent,
+// same Origin/Referer, same Accept-* headers.
 const UA =
-  "Mozilla/5.0 (BrawlPick draft assistant; +https://github.com/HugoPires42/BrawlPicker)";
+  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
+
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent": UA,
+  Accept: "*/*",
+  "Accept-Language": "en-US,en;q=0.9",
+  Origin: "https://brawltime.ninja",
+  Referer: "https://brawltime.ninja/",
+};
 
 type TokenCache = { token: string; expiresAt: number };
 let cached: TokenCache | null = null;
@@ -20,9 +38,8 @@ async function getToken(): Promise<string> {
       res = await fetch(TOKEN_URL, {
         method: "POST",
         headers: {
+          ...BROWSER_HEADERS,
           "Content-Type": "application/json",
-          "User-Agent": UA,
-          Accept: "application/json",
         },
         body: "{}",
       });
@@ -132,10 +149,9 @@ export async function cubeQuery<T extends CubeRow = CubeRow>(
       const res = await fetch(CUBE_URL, {
         method: "POST",
         headers: {
+          ...BROWSER_HEADERS,
           Authorization: token,
           "Content-Type": "application/json",
-          "User-Agent": UA,
-          Accept: "application/json",
         },
         body,
       });
