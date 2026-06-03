@@ -340,6 +340,36 @@ export const STRINGS = {
 
   // Per-step indicators
   "how.step": { fr: "Étape", en: "Step" },
+
+  // View-mode toggle (raw WR vs specific ΔWR)
+  "view.raw": { fr: "Brut WR", en: "Raw WR" },
+  "view.delta": { fr: "Spécifique ΔWR", en: "Specific ΔWR" },
+  "view.help.raw": {
+    fr: "Win rate observé brut — cohérent avec les per-ennemis, mais les méta brawlers dominent.",
+    en: "Raw observed win rate — consistent with per-enemy lists but meta brawlers dominate.",
+  },
+  "view.help.delta": {
+    fr: "Win rate au-dessus de la baseline du brawler — fait ressortir les counters spécifiques.",
+    en: "Win rate above the brawler's baseline — surfaces specific counters that meta picks hide.",
+  },
+
+  // Badge labels (the {n} / {name} placeholders are replaced client-side)
+  "badge.topCounter": { fr: "+{n} pp vs", en: "+{n} pp vs" },
+  "badge.topMap": { fr: "Top map", en: "Top map" },
+  "badge.topSynergy": { fr: "Synergie", en: "Synergy" },
+  "badge.missingRole": { fr: "Rôle manquant", en: "Missing role" },
+  "badge.hardCounter": { fr: "Hard counter", en: "Hard counter" },
+  "badge.metaPick": { fr: "Méta", en: "Meta" },
+
+  // Hard counter reason labels (shown in tooltip)
+  "hc.diveSniper": { fr: "Dive sur sniper", en: "Dive on sniper" },
+  "hc.diveThrower": { fr: "Dive sur thrower", en: "Dive on thrower" },
+  "hc.tankMelter": { fr: "Tank melter", en: "Tank melter" },
+  "hc.antiAssassin": { fr: "Anti-assassin", en: "Anti-assassin" },
+  "hc.wallBreak": { fr: "Casse les murs", en: "Wall breaker" },
+  "hc.kiteTank": { fr: "Kite les tanks", en: "Kites tanks" },
+  "hc.ccSniper": { fr: "CC sniper", en: "CC sniper" },
+  "hc.ccAssassin": { fr: "CC assassin", en: "CC assassin" },
 } satisfies Record<string, Dict>;
 
 export type StringKey = keyof typeof STRINGS;

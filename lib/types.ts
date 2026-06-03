@@ -56,11 +56,31 @@ export type BanRow = {
   banScore: number;
 };
 
+export type Badge = {
+  /** Kind drives the colour and the i18n template used on the client. */
+  kind:
+    | "topCounter"
+    | "topMap"
+    | "topSynergy"
+    | "missingRole"
+    | "hardCounter"
+    | "metaPick";
+  /** Optional payload — a number (e.g. ΔWR percentage points) or a name. */
+  value?: string | number;
+};
+
 export type ScoredCandidate = {
   brawler: string;
   solo: number;
   synergy: number | null;
   matchup: number | null;
+  /**
+   * For the delta variants: relative WR delta from the brawler's baseline.
+   * Positive ΔWR means the brawler *specifically* counters / synergises
+   * better than they perform on average.
+   */
+  delta?: number | null;
   score: number;
   source: "ml" | "heuristic";
+  badges?: Badge[];
 };

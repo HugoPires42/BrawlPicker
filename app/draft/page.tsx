@@ -1,6 +1,7 @@
 "use client";
 import Image from "next/image";
 import { useEffect, useMemo, useRef, useState } from "react";
+import BadgeRow from "@/components/BadgeRow";
 import BrawlerAvatar from "@/components/BrawlerAvatar";
 import BrawlerGrid from "@/components/BrawlerGrid";
 import BrawlerSlot from "@/components/BrawlerSlot";
@@ -8,6 +9,7 @@ import BucketSelector from "@/components/BucketSelector";
 import MiniCounter from "@/components/MiniCounter";
 import ModePicker from "@/components/ModePicker";
 import MapGrid from "@/components/MapGrid";
+import ViewModeToggle, { type ViewMode } from "@/components/ViewModeToggle";
 import { useI18n } from "@/components/I18nProvider";
 import { type Bucket } from "@/lib/buckets";
 import type { StringKey } from "@/lib/i18n";
@@ -32,7 +34,9 @@ type DraftResp = {
   recommendations: ScoredCandidate[];
   topByMap: ScoredCandidate[];
   topBySynergy: ScoredCandidate[];
+  topBySynergyDelta: ScoredCandidate[];
   topByCounter: ScoredCandidate[];
+  topByCounterDelta: ScoredCandidate[];
   modelLoaded: boolean;
 };
 
@@ -59,6 +63,7 @@ export default function DraftPage() {
     Array(SLOTS).fill(null)
   );
   const [bucket, setBucket] = useState<Bucket>("all");
+  const [viewMode, setViewMode] = useState<ViewMode>("raw");
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<SlotRef | null>(null);
@@ -230,6 +235,9 @@ export default function DraftPage() {
           </span>
           <BucketSelector value={bucket} onChange={setBucket} />
         </div>
+        <div className="flex items-center gap-2">
+          <ViewModeToggle value={viewMode} onChange={setViewMode} />
+        </div>
         <div className="flex items-center gap-3 ml-auto">
           <Image
             src={map.imageUrl}
@@ -333,6 +341,7 @@ export default function DraftPage() {
             loading={loading}
             map={map}
             bucket={bucket}
+            viewMode={viewMode}
           />
         </div>
 
@@ -361,18 +370,28 @@ function RecommendationsPanel({
   loading,
   map,
   bucket,
+  viewMode,
 }: {
   resp: DraftResp | null;
   byCube: Map<string, Brawler>;
   loading: boolean;
   map: GameMap;
   bucket: Bucket;
+  viewMode: ViewMode;
 }) {
   const { t } = useI18n();
   const recs = resp?.recommendations ?? [];
   const byMap = resp?.topByMap ?? [];
-  const bySyn = resp?.topBySynergy ?? [];
-  const byCnt = resp?.topByCounter ?? [];
+  const bySyn =
+    viewMode === "delta"
+      ? resp?.topBySynergyDelta ?? []
+      : resp?.topBySynergy ?? [];
+  const byCnt =
+    viewMode === "delta"
+      ? resp?.topByCounterDelta ?? []
+      : resp?.topByCounter ?? [];
+  const synMetric: "synergy" | "delta" = viewMode === "delta" ? "delta" : "synergy";
+  const cntMetric: "matchup" | "delta" = viewMode === "delta" ? "delta" : "matchup";
 
   return (
     <section className="card">
@@ -426,26 +445,30 @@ function RecommendationsPanel({
             tone="good"
             subtitle={
               bySyn.length > 0
-                ? t("col.synergy.subtitleActive")
+                ? t("col.synergy.subtitleActive") +
+                  (viewMode === "delta" ? " · ΔWR" : "")
                 : t("col.synergy.subtitleInactive")
             }
-            metricKey="synergy"
+            metricKey={synMetric}
             items={bySyn}
             byCube={byCube}
             empty={t("col.synergy.empty")}
+            isDelta={viewMode === "delta"}
           />
           <RecColumn
             title={t("col.counter.title")}
             tone="bad"
             subtitle={
               byCnt.length > 0
-                ? t("col.counter.subtitleActive")
+                ? t("col.counter.subtitleActive") +
+                  (viewMode === "delta" ? " · ΔWR" : "")
                 : t("col.counter.subtitleInactive")
             }
-            metricKey="matchup"
+            metricKey={cntMetric}
             items={byCnt}
             byCube={byCube}
             empty={t("col.counter.empty")}
+            isDelta={viewMode === "delta"}
           />
         </div>
       )}
@@ -463,14 +486,16 @@ function RecColumn({
   items,
   byCube,
   empty,
+  isDelta = false,
 }: {
   title: string;
   subtitle: string;
   tone: Tone;
-  metricKey: "score" | "solo" | "synergy" | "matchup";
+  metricKey: "score" | "solo" | "synergy" | "matchup" | "delta";
   items: ScoredCandidate[];
   byCube: Map<string, Brawler>;
   empty?: string;
+  isDelta?: boolean;
 }) {
   const toneClass =
     tone === "accent"
@@ -480,6 +505,17 @@ function RecColumn({
         : tone === "bad"
           ? "text-bad border-bad/40"
           : "text-muted border-border";
+
+  function formatValue(p: ScoredCandidate): string {
+    const v = p[metricKey] as number | null | undefined;
+    if (v == null) return "—";
+    if (isDelta) {
+      const pp = Math.round(v * 100);
+      const sign = pp > 0 ? "+" : "";
+      return `${sign}${pp}`;
+    }
+    return `${(v * 100).toFixed(0)}`;
+  }
 
   return (
     <div className={"rounded-xl border bg-panel2/40 p-3 " + toneClass}>
@@ -493,39 +529,41 @@ function RecColumn({
       {items.length === 0 ? (
         <RecColumnEmpty fallback={empty} />
       ) : (
-        <ul className="space-y-1">
+        <ul className="space-y-1.5">
           {items.map((p, idx) => {
             const b = byCube.get(p.brawler);
-            const value = p[metricKey] as number | null;
             const top = idx < 3;
             return (
               <li
                 key={p.brawler}
                 className={
-                  "flex items-center gap-2 py-1.5 px-2 rounded transition " +
+                  "py-1.5 px-2 rounded transition " +
                   (top ? "bg-panel/60" : "")
                 }
               >
-                <span className="text-[10px] text-muted w-4 text-right tabular-nums shrink-0">
-                  {idx + 1}
-                </span>
-                <BrawlerAvatar
-                  brawler={b}
-                  cubeName={p.brawler}
-                  size={30}
-                  className="shrink-0"
-                />
-                <span className="text-xs font-medium flex-1 min-w-0 truncate">
-                  {b?.name ?? p.brawler}
-                </span>
-                <span
-                  className={
-                    "text-sm font-bold tabular-nums shrink-0 " +
-                    (top ? toneClass.split(" ")[0] : "text-muted")
-                  }
-                >
-                  {value != null ? `${(value * 100).toFixed(0)}` : "—"}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted w-4 text-right tabular-nums shrink-0">
+                    {idx + 1}
+                  </span>
+                  <BrawlerAvatar
+                    brawler={b}
+                    cubeName={p.brawler}
+                    size={30}
+                    className="shrink-0"
+                  />
+                  <span className="text-xs font-medium flex-1 min-w-0 truncate">
+                    {b?.name ?? p.brawler}
+                  </span>
+                  <span
+                    className={
+                      "text-sm font-bold tabular-nums shrink-0 " +
+                      (top ? toneClass.split(" ")[0] : "text-muted")
+                    }
+                  >
+                    {formatValue(p)}
+                  </span>
+                </div>
+                <BadgeRow badges={p.badges} byCube={byCube} />
               </li>
             );
           })}
