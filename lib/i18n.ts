@@ -353,6 +353,11 @@ export const STRINGS = {
     en: "Win rate above the brawler's baseline — surfaces specific counters that meta picks hide.",
   },
 
+  "draft.firstLoadHint": {
+    fr: "Premier chargement de ce bucket — 20-40 s pendant que les données se mettent en cache.",
+    en: "First load for this bucket — 20-40 s while the data warms up.",
+  },
+
   // Badge labels (the {n} / {name} placeholders are replaced client-side)
   "badge.topCounter": { fr: "+{n} pp vs", en: "+{n} pp vs" },
   "badge.topMap": { fr: "Top map", en: "Top map" },

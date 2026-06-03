@@ -394,7 +394,33 @@ function RecommendationsPanel({
   const cntMetric: "matchup" | "delta" = viewMode === "delta" ? "delta" : "matchup";
 
   return (
-    <section className="card">
+    <section className="card relative">
+      {loading && (
+        <div className="absolute inset-0 z-10 bg-bg/70 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center gap-3 pointer-events-none">
+          <div className="flex items-center gap-2 text-accent text-sm font-semibold animate-pulse">
+            <svg
+              className="w-4 h-4 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeDasharray="40 20"
+                strokeLinecap="round"
+              />
+            </svg>
+            {t("draft.updating")}
+          </div>
+          <div className="text-[11px] text-muted text-center max-w-xs">
+            {t("draft.firstLoadHint")}
+          </div>
+        </div>
+      )}
       <div className="flex items-center gap-2 mb-3 flex-wrap">
         <h2 className="text-sm uppercase tracking-wide text-muted">
           {t("recs.title")}
@@ -402,11 +428,6 @@ function RecommendationsPanel({
         <span className="text-[10px] text-muted">
           {t(BUCKET_LABEL_KEY[bucket])} · {map.name}
         </span>
-        {loading && (
-          <span className="ml-auto text-[10px] text-accent animate-pulse">
-            {t("draft.updating")}
-          </span>
-        )}
         {!loading && resp && !resp.modelLoaded && (
           <span className="ml-auto text-[10px] text-muted">
             {t("recs.modelNotLoaded")}
@@ -423,7 +444,12 @@ function RecommendationsPanel({
       )}
 
       {recs.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+        <div
+          className={
+            "grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 transition " +
+            (loading ? "opacity-30" : "")
+          }
+        >
           <RecColumn
             title={t("col.combined.title")}
             tone="accent"
