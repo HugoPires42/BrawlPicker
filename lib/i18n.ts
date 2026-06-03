@@ -341,16 +341,19 @@ export const STRINGS = {
   // Per-step indicators
   "how.step": { fr: "Étape", en: "Step" },
 
-  // View-mode toggle (raw WR vs specific ΔWR)
-  "view.raw": { fr: "Brut WR", en: "Raw WR" },
-  "view.delta": { fr: "Spécifique ΔWR", en: "Specific ΔWR" },
+  // View-mode toggle
+  "view.raw": { fr: "Winrate pure", en: "Pure winrate" },
+  "view.delta": {
+    fr: "Hard counters / synergies",
+    en: "Hard counters / synergies",
+  },
   "view.help.raw": {
     fr: "Win rate observé brut — cohérent avec les per-ennemis, mais les méta brawlers dominent.",
     en: "Raw observed win rate — consistent with per-enemy lists but meta brawlers dominate.",
   },
   "view.help.delta": {
-    fr: "Win rate au-dessus de la baseline du brawler — fait ressortir les counters spécifiques.",
-    en: "Win rate above the brawler's baseline — surfaces specific counters that meta picks hide.",
+    fr: "Win rate au-dessus de la baseline du brawler — fait ressortir les hard counters et synergies spécifiques.",
+    en: "Win rate above the brawler's baseline — surfaces hard counters and specific synergies the meta hides.",
   },
 
   "draft.firstLoadHint": {

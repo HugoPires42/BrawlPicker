@@ -1,5 +1,6 @@
 import { cubeQuery, type CubeFilter } from "./cube";
 import { canonical } from "./aliases";
+import { isRemoved } from "./removed";
 
 const MIN_PICKS = 100_000;
 const TTL_MS = 30 * 60 * 1000;
@@ -63,6 +64,7 @@ export async function getBaselineWRs(
     const out = new Map<string, number>();
     for (const r of rows) {
       const b = canonical(String(r["brawlerEnemies.brawler_dimension"]));
+      if (isRemoved(b)) continue;
       const wr = Number(r["brawlerEnemies.winRate_measure"]);
       // canonical may collapse aliases; keep the latest value (small impact)
       out.set(b, wr);

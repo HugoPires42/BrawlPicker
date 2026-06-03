@@ -1,5 +1,6 @@
 import { cubeQuery, type CubeFilter } from "./cube";
 import { canonical, expandAliases } from "./aliases";
+import { isRemoved } from "./removed";
 import type { CounterRow } from "./types";
 
 const MIN_PICKS = 1000;
@@ -78,6 +79,7 @@ async function bulkFetch(
     const brawlerCanon = canonical(
       String(r["brawlerEnemies.brawler_dimension"])
     );
+    if (isRemoved(brawlerCanon)) continue;
     const picks = Number(r["brawlerEnemies.picks_measure"]);
     const wr = Number(r["brawlerEnemies.winRate_measure"]);
     const perEnemy = grouped.get(enemyCanon) ?? new Map();
@@ -246,6 +248,7 @@ export async function getCountersForEnemy(
     const merged = new Map<string, { wr: number; picks: number }>();
     for (const r of rows) {
       const b = canonical(String(r["brawlerEnemies.brawler_dimension"]));
+      if (isRemoved(b)) continue;
       const wr = Number(r["brawlerEnemies.winRate_measure"]);
       const picks = Number(r["brawlerEnemies.picks_measure"]);
       const prev = merged.get(b);
@@ -317,6 +320,7 @@ export async function getSynergyForAlly(
     const merged = new Map<string, { wr: number; picks: number }>();
     for (const r of rows) {
       const b = canonical(String(r["brawlerAllies.brawler_dimension"]));
+      if (isRemoved(b)) continue;
       const wr = Number(r["brawlerAllies.winRate_measure"]);
       const picks = Number(r["brawlerAllies.picks_measure"]);
       const prev = merged.get(b);

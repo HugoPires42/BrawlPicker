@@ -1,10 +1,14 @@
 import type { Brawler, GameMap } from "./types";
+import { isRemoved } from "./removed";
 
 const BRAWLIFY = "https://api.brawlify.com/v1";
 const BRAWLIFY_HEADERS = {
   "User-Agent":
-    "Mozilla/5.0 (BrawlPick draft assistant; +https://github.com/HugoPires42/BrawlPicker)",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   Accept: "application/json",
+  "Accept-Language": "en-US,en;q=0.9",
+  Origin: "https://brawlify.com",
+  Referer: "https://brawlify.com/",
 };
 
 type BrawlifyBrawler = {
@@ -65,6 +69,7 @@ export async function getBrawlers(): Promise<Brawler[]> {
       imageUrl:
         b.imageUrl2 ?? b.imageUrl ?? `https://cdn.brawlify.com/brawlers/borderless/${b.id}.png`,
     }))
+    .filter((b) => !isRemoved(b.cubeName))
     .sort((a, b) => a.name.localeCompare(b.name));
   brawlersCache = { value, at: Date.now() };
   return value;

@@ -7,6 +7,7 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Bucket } from "./buckets";
+import { isRemoved } from "./removed";
 
 type ModelFile = {
   version: number;
@@ -107,6 +108,7 @@ async function loadOne(bucket: Bucket): Promise<ModelHandle> {
 
     for (const [name, X] of brawlerIdx) {
       if (ctx.excluded.has(name)) continue;
+      if (isRemoved(name)) continue;
       const xOff = X * D;
 
       // Solo includes the map term — that's the whole point of "best on map".

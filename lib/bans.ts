@@ -1,5 +1,6 @@
 import { cubeQuery, type CubeFilter } from "./cube";
 import { canonical } from "./aliases";
+import { isRemoved } from "./removed";
 import type { BanRow } from "./types";
 
 const MIN_PICKS = 500;
@@ -41,6 +42,7 @@ export async function getBansForMap(
   const agg = new Map<string, { wr: number; picks: number }>();
   for (const r of rows) {
     const b = canonical(String(r["map.brawler_dimension"]));
+    if (isRemoved(b)) continue;
     const wr = Number(r["map.winRate_measure"]);
     const picks = Number(r["map.picks_measure"]);
     const prev = agg.get(b);
