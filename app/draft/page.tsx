@@ -1,10 +1,10 @@
 "use client";
 import Image from "next/image";
-import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import BadgeRow from "@/components/BadgeRow";
 import BrawlerAvatar from "@/components/BrawlerAvatar";
 import BrawlerGrid from "@/components/BrawlerGrid";
+import BrawlerModal from "@/components/BrawlerModal";
 import BrawlerSlot from "@/components/BrawlerSlot";
 import BucketSelector from "@/components/BucketSelector";
 import MiniCounter from "@/components/MiniCounter";
@@ -13,7 +13,7 @@ import MapGrid from "@/components/MapGrid";
 import ViewModeToggle, { type ViewMode } from "@/components/ViewModeToggle";
 import { useI18n } from "@/components/I18nProvider";
 import { type Bucket } from "@/lib/buckets";
-import { brawlerHref } from "@/lib/slug";
+import { slugify } from "@/lib/slug";
 import type { StringKey } from "@/lib/i18n";
 import type {
   BanRow,
@@ -66,6 +66,8 @@ export default function DraftPage() {
   );
   const [bucket, setBucket] = useState<Bucket>("all");
   const [viewMode, setViewMode] = useState<ViewMode>("raw");
+  const [wikiSlug, setWikiSlug] = useState<string | null>(null);
+  const openWiki = (cubeName: string) => setWikiSlug(slugify(cubeName));
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<SlotRef | null>(null);
@@ -304,6 +306,7 @@ export default function DraftPage() {
                           brawler={byCube.get(c.brawler)}
                           cubeName={c.brawler}
                           winRate={c.winRate}
+                          onSelect={openWiki}
                         />
                       ))}
                     </div>
@@ -344,10 +347,17 @@ export default function DraftPage() {
             map={map}
             bucket={bucket}
             viewMode={viewMode}
+            onSelectBrawler={openWiki}
           />
         </div>
 
-        <BansPanel resp={resp} byCube={byCube} loading={loading} map={map} />
+        <BansPanel
+          resp={resp}
+          byCube={byCube}
+          loading={loading}
+          map={map}
+          onSelectBrawler={openWiki}
+        />
       </div>
 
       <BrawlerGrid
@@ -362,6 +372,12 @@ export default function DraftPage() {
             : t("draft.pickAlly")
         }
       />
+
+      <BrawlerModal
+        slug={wikiSlug}
+        onClose={() => setWikiSlug(null)}
+        onSwap={openWiki}
+      />
     </div>
   );
 }
@@ -373,6 +389,7 @@ function RecommendationsPanel({
   map,
   bucket,
   viewMode,
+  onSelectBrawler,
 }: {
   resp: DraftResp | null;
   byCube: Map<string, Brawler>;
@@ -380,6 +397,7 @@ function RecommendationsPanel({
   map: GameMap;
   bucket: Bucket;
   viewMode: ViewMode;
+  onSelectBrawler: (cubeName: string) => void;
 }) {
   const { t } = useI18n();
   const recs = resp?.recommendations ?? [];
@@ -459,6 +477,7 @@ function RecommendationsPanel({
             metricKey="score"
             items={recs.slice(0, 10)}
             byCube={byCube}
+            onSelectBrawler={onSelectBrawler}
           />
           <RecColumn
             title={t("col.map.title")}
@@ -467,6 +486,7 @@ function RecommendationsPanel({
             metricKey="solo"
             items={byMap}
             byCube={byCube}
+            onSelectBrawler={onSelectBrawler}
           />
           <RecColumn
             title={t("col.synergy.title")}
@@ -482,6 +502,7 @@ function RecommendationsPanel({
             byCube={byCube}
             empty={t("col.synergy.empty")}
             isDelta={viewMode === "delta"}
+            onSelectBrawler={onSelectBrawler}
           />
           <RecColumn
             title={t("col.counter.title")}
@@ -497,6 +518,7 @@ function RecommendationsPanel({
             byCube={byCube}
             empty={t("col.counter.empty")}
             isDelta={viewMode === "delta"}
+            onSelectBrawler={onSelectBrawler}
           />
         </div>
       )}
@@ -515,6 +537,7 @@ function RecColumn({
   byCube,
   empty,
   isDelta = false,
+  onSelectBrawler,
 }: {
   title: string;
   subtitle: string;
@@ -524,6 +547,7 @@ function RecColumn({
   byCube: Map<string, Brawler>;
   empty?: string;
   isDelta?: boolean;
+  onSelectBrawler: (cubeName: string) => void;
 }) {
   const toneClass =
     tone === "accent"
@@ -569,9 +593,9 @@ function RecColumn({
                   (top ? "bg-panel/60" : "")
                 }
               >
-                <Link
-                  href={brawlerHref(p.brawler)}
-                  className="flex items-center gap-2 py-1.5 px-2"
+                <button
+                  onClick={() => onSelectBrawler(p.brawler)}
+                  className="flex items-center gap-2 py-1.5 px-2 w-full text-left"
                 >
                   <span className="text-[10px] text-muted w-4 text-right tabular-nums shrink-0">
                     {idx + 1}
@@ -593,7 +617,7 @@ function RecColumn({
                   >
                     {formatValue(p)}
                   </span>
-                </Link>
+                </button>
                 <div className="px-2 pb-1.5">
                   <BadgeRow badges={p.badges} byCube={byCube} />
                 </div>
@@ -620,11 +644,13 @@ function BansPanel({
   byCube,
   loading,
   map,
+  onSelectBrawler,
 }: {
   resp: DraftResp | null;
   byCube: Map<string, Brawler>;
   loading: boolean;
   map: GameMap;
+  onSelectBrawler: (cubeName: string) => void;
 }) {
   const { t } = useI18n();
   const bans = resp?.bans ?? [];
@@ -653,9 +679,9 @@ function BansPanel({
           const tier = i < 3 ? "text-bad" : i < 6 ? "text-accent" : "text-muted";
           return (
             <li key={b.brawler} className="rounded hover:bg-panel">
-              <Link
-                href={brawlerHref(b.brawler)}
-                className="flex items-center gap-2 py-1.5 px-1"
+              <button
+                onClick={() => onSelectBrawler(b.brawler)}
+                className="flex items-center gap-2 py-1.5 px-1 w-full text-left"
               >
                 <span className={"w-5 text-right text-xs font-bold " + tier}>
                   {i + 1}
@@ -682,7 +708,7 @@ function BansPanel({
                 <div className="text-[10px] text-good tabular-nums">
                   {(b.winRate * 100).toFixed(0)}%
                 </div>
-              </Link>
+              </button>
             </li>
           );
         })}
