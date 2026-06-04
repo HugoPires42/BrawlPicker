@@ -33,6 +33,17 @@ export default function AppShell({ children }: { children: ReactNode }) {
               {t("nav.draft")}
             </Link>
             <Link
+              href="/wiki"
+              className={
+                "px-3 py-1.5 rounded-lg transition " +
+                (isActive("/wiki")
+                  ? "bg-accent text-black font-medium"
+                  : "text-muted hover:text-white hover:bg-panel2")
+              }
+            >
+              {t("nav.wiki")}
+            </Link>
+            <Link
               href="/how-it-works"
               className={
                 "px-3 py-1.5 rounded-lg transition " +

@@ -369,6 +369,121 @@ export const STRINGS = {
   "badge.hardCounter": { fr: "Hard counter", en: "Hard counter" },
   "badge.metaPick": { fr: "Méta", en: "Meta" },
 
+  // Wiki nav + landing
+  "nav.wiki": { fr: "Wiki", en: "Wiki" },
+  "wiki.title": { fr: "Wiki", en: "Wiki" },
+  "wiki.subtitle": {
+    fr: "Explore les brawlers et les maps : builds optimaux, meilleurs picks, guides stratégiques.",
+    en: "Explore brawlers and maps: optimal builds, top picks, strategic guides.",
+  },
+  "wiki.card.brawlers.title": { fr: "Brawlers", en: "Brawlers" },
+  "wiki.card.brawlers.desc": {
+    fr: "Builds optimaux, meilleures synergies, pires matchups et conseils pour chaque brawler.",
+    en: "Optimal builds, best synergies, worst matchups, and tips for every brawler.",
+  },
+  "wiki.card.maps.title": { fr: "Maps", en: "Maps" },
+  "wiki.card.maps.desc": {
+    fr: "Pour chaque map ranked : top brawlers, picks à ban, archétype et stratégies.",
+    en: "For every ranked map: top brawlers, picks to ban, archetype, and strategies.",
+  },
+
+  // Wiki — brawler page
+  "wiki.brawlers.title": { fr: "Tous les brawlers", en: "All brawlers" },
+  "wiki.brawlers.filter": {
+    fr: "Filtre par classe ou recherche…",
+    en: "Filter by class or search…",
+  },
+  "wiki.brawler.class": { fr: "Classe", en: "Class" },
+  "wiki.brawler.rarity": { fr: "Rareté", en: "Rarity" },
+  "wiki.brawler.baseline": {
+    fr: "WR global (toutes maps)",
+    en: "Global WR (all maps)",
+  },
+  "wiki.brawler.bestBuild": { fr: "Build optimal", en: "Optimal build" },
+  "wiki.brawler.bestBuild.subtitle": {
+    fr: "Combo gadget / star power / gears avec le meilleur win rate observé.",
+    en: "Gadget / star power / gear combo with the highest observed win rate.",
+  },
+  "wiki.brawler.bestGadget": { fr: "Meilleur gadget", en: "Best gadget" },
+  "wiki.brawler.bestStarpower": {
+    fr: "Meilleure star power",
+    en: "Best star power",
+  },
+  "wiki.brawler.bestGears": { fr: "Meilleurs gears", en: "Best gears" },
+  "wiki.brawler.bestMaps": {
+    fr: "Meilleures maps ranked",
+    en: "Best ranked maps",
+  },
+  "wiki.brawler.bestAllies": { fr: "Synergies fortes", en: "Strong synergies" },
+  "wiki.brawler.hardCounters": {
+    fr: "Counters difficiles",
+    en: "Hard matchups",
+  },
+  "wiki.brawler.easyMatchups": {
+    fr: "Matchups favorables",
+    en: "Favourable matchups",
+  },
+  "wiki.brawler.tips": { fr: "Conseils de jeu", en: "How to play" },
+  "wiki.brawler.noStats": {
+    fr: "Pas encore assez de data pour ce brawler.",
+    en: "Not enough data for this brawler yet.",
+  },
+
+  // Wiki — map page
+  "wiki.maps.title": { fr: "Maps ranked", en: "Ranked maps" },
+  "wiki.maps.subtitle": {
+    fr: "Sélectionne une map pour voir ses stats et stratégies.",
+    en: "Pick a map to see its stats and strategies.",
+  },
+  "wiki.map.topBrawlers": { fr: "Top brawlers", en: "Top brawlers" },
+  "wiki.map.topBrawlers.subtitle": {
+    fr: "Classement par WR sur cette map (toutes les ELO confondus).",
+    en: "Ranked by WR on this map (all ELO brackets combined).",
+  },
+  "wiki.map.topBans": { fr: "Top bans", en: "Top bans" },
+  "wiki.map.archetype": { fr: "Archétype", en: "Archetype" },
+  "wiki.map.strategy": { fr: "Stratégie", en: "Strategy" },
+  "wiki.map.synergies": {
+    fr: "Meilleures synergies",
+    en: "Best synergies",
+  },
+
+  // Map archetype labels (derived from top brawlers' classes)
+  "arch.sniperOpen": {
+    fr: "Map ouverte, favorable aux snipers",
+    en: "Open map, favours snipers",
+  },
+  "arch.tankClose": {
+    fr: "Map fermée, favorable aux tanks et lanceurs",
+    en: "Close map, favours tanks and throwers",
+  },
+  "arch.assassinControl": {
+    fr: "Map à zones, favorable aux assassins et contrôle",
+    en: "Zoned map, favours assassins and control",
+  },
+  "arch.mixed": {
+    fr: "Map mixte, plusieurs styles viables",
+    en: "Balanced map, multiple styles viable",
+  },
+
+  // Strategy templates per archetype (curated)
+  "strat.sniperOpen": {
+    fr: "Tiens à distance avec des longues portées. Garde les angles ouverts et évite les engagements rapprochés.",
+    en: "Hold range with long-range brawlers. Keep angles open and avoid close engagements.",
+  },
+  "strat.tankClose": {
+    fr: "Profite des murs pour engager. Les tanks et lanceurs dominent ; les snipers galèrent.",
+    en: "Use walls to engage. Tanks and throwers dominate; snipers struggle.",
+  },
+  "strat.assassinControl": {
+    fr: "Contrôle les zones et plays informés. Les assassins explosent les snipers, les tanks bloquent les assassins.",
+    en: "Control zones and informed plays. Assassins delete snipers, tanks block assassins.",
+  },
+  "strat.mixed": {
+    fr: "Adapte-toi à l'équipe adverse — la map ne dicte pas un style unique.",
+    en: "Adapt to the enemy team — the map doesn't impose one style.",
+  },
+
   // Hard counter reason labels (shown in tooltip)
   "hc.diveSniper": { fr: "Dive sur sniper", en: "Dive on sniper" },
   "hc.diveThrower": { fr: "Dive sur thrower", en: "Dive on thrower" },
