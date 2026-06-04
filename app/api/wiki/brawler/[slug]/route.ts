@@ -14,6 +14,7 @@ import {
   worstMatchupsForBrawler,
 } from "@/lib/wikiData";
 import { getBrawlers } from "@/lib/brawlify";
+import { getRankedMaps } from "@/lib/ranked";
 
 export const dynamic = "force-dynamic";
 
@@ -43,6 +44,7 @@ export async function GET(
     worstEnemies,
     bestEnemies,
     baseline,
+    rankedMaps,
   ] = await Promise.all([
     getBrawlerDetail(brawler.id).catch(() => null),
     getGearNames(),
@@ -54,7 +56,23 @@ export async function GET(
     worstMatchupsForBrawler(brawler.cubeName, trophyMin).catch(() => []),
     easiestMatchupsForBrawler(brawler.cubeName, trophyMin).catch(() => []),
     brawlerBaseline(brawler.cubeName, trophyMin).catch(() => null),
+    getRankedMaps().catch(() => []),
   ]);
+
+  // Enrich best maps with image + display name from the ranked-maps catalog.
+  const rankedByKey = new Map(
+    rankedMaps.map((m) => [`${m.modeCube}::${m.cubeName}`, m])
+  );
+  const bestMapsEnriched = bestMaps.map((m) => {
+    const gm = rankedByKey.get(`${m.mode}::${m.map}`);
+    return {
+      ...m,
+      name: gm?.name ?? m.map,
+      modeName: gm?.modeName,
+      modeColor: gm?.modeColor,
+      imageUrl: gm?.imageUrl,
+    };
+  });
 
   const gadgetById = new Map<number, { name: string; description: string }>();
   for (const g of detail?.gadgets ?? []) {
@@ -95,7 +113,7 @@ export async function GET(
         name: gearNames.get(Number(g.id)),
       })),
     },
-    bestMaps,
+    bestMaps: bestMapsEnriched,
     bestAllies,
     worstEnemies,
     bestEnemies,

@@ -33,7 +33,7 @@ export default function AppShell({ children }: { children: ReactNode }) {
               {t("nav.draft")}
             </Link>
             <Link
-              href="/wiki"
+              href="/wiki/brawlers"
               className={
                 "px-3 py-1.5 rounded-lg transition " +
                 (isActive("/wiki")

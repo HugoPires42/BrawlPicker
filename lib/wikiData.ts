@@ -318,12 +318,15 @@ export async function bestMapsForBrawler(
     }));
 }
 
-/** Top allies (synergy) for a brawler globally. */
+/** Top allies (synergy) for a brawler globally. Self is excluded — the cube
+ *  reports B paired with itself for showdown / multi-pick scenarios but it
+ *  doesn't make sense in a draft assistant. */
 export async function bestAlliesForBrawler(
   brawler: string,
   trophyMin: number | null,
   limit = 5
 ): Promise<NamedWR[]> {
+  const selfCanon = canonical(brawler);
   const rows = await cubeQuery<{
     "brawlerAllies.ally_dimension": string;
     "brawlerAllies.winRate_measure": string | number;
@@ -356,6 +359,7 @@ export async function bestAlliesForBrawler(
   for (const r of rows) {
     const a = canonical(String(r["brawlerAllies.ally_dimension"]));
     if (isRemoved(a)) continue;
+    if (a === selfCanon) continue; // don't recommend the brawler with itself
     const wr = Number(r["brawlerAllies.winRate_measure"]);
     const picks = Number(r["brawlerAllies.picks_measure"]);
     const prev = merged.get(a);

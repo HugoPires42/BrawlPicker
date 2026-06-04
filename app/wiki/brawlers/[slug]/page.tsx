@@ -17,7 +17,16 @@ type BuildItem = {
   description?: string;
 };
 
-type MapHit = { mode: string; map: string; winRate: number; picks: number };
+type MapHit = {
+  mode: string;
+  map: string;
+  winRate: number;
+  picks: number;
+  name?: string;
+  modeName?: string;
+  modeColor?: string;
+  imageUrl?: string;
+};
 type NamedWR = { name: string; winRate: number; picks: number };
 
 type BrawlerPayload = {
@@ -186,26 +195,43 @@ export default function BrawlerDetail({
           <h2 className="text-sm uppercase tracking-wide text-muted mb-3">
             {t("wiki.brawler.bestMaps")}
           </h2>
-          <ul className="space-y-1.5">
+          <ul className="grid sm:grid-cols-2 gap-2">
             {data.bestMaps.map((m) => (
               <li
                 key={m.mode + "::" + m.map}
-                className="flex items-center gap-3 py-1.5"
+                className="flex items-center gap-3 p-2 rounded-lg border border-border bg-panel2/40"
               >
-                <span className="text-xs text-muted">{m.mode}</span>
-                <Link
-                  href={`/wiki/maps/${m.mode}/${slugify(m.map)}`}
-                  className="text-sm font-medium hover:text-accent transition"
-                >
-                  {m.map}
-                </Link>
-                <div className="flex-1 h-1 bg-panel2 rounded">
-                  <div
-                    className="h-full bg-good/60 rounded"
-                    style={{ width: `${m.winRate * 100}%` }}
-                  />
+                <div className="relative w-14 h-14 rounded-md overflow-hidden bg-panel shrink-0 ring-1 ring-border">
+                  {m.imageUrl && (
+                    <Image
+                      src={m.imageUrl}
+                      alt={m.name ?? m.map}
+                      fill
+                      sizes="56px"
+                      className="object-contain"
+                    />
+                  )}
                 </div>
-                <span className="text-sm font-bold text-good tabular-nums w-12 text-right">
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium truncate">
+                    {m.name ?? m.map}
+                  </div>
+                  {m.modeName && (
+                    <div
+                      className="text-[10px] uppercase tracking-wide"
+                      style={{ color: m.modeColor }}
+                    >
+                      {m.modeName}
+                    </div>
+                  )}
+                  <div className="h-1 mt-1 bg-panel rounded">
+                    <div
+                      className="h-full bg-good/70 rounded"
+                      style={{ width: `${m.winRate * 100}%` }}
+                    />
+                  </div>
+                </div>
+                <span className="text-sm font-bold text-good tabular-nums w-12 text-right shrink-0">
                   {(m.winRate * 100).toFixed(0)}%
                 </span>
               </li>

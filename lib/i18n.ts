@@ -370,7 +370,7 @@ export const STRINGS = {
   "badge.metaPick": { fr: "Méta", en: "Meta" },
 
   // Wiki nav + landing
-  "nav.wiki": { fr: "Wiki", en: "Wiki" },
+  "nav.wiki": { fr: "Brawlers", en: "Brawlers" },
   "wiki.title": { fr: "Wiki", en: "Wiki" },
   "wiki.subtitle": {
     fr: "Explore les brawlers et les maps : builds optimaux, meilleurs picks, guides stratégiques.",
