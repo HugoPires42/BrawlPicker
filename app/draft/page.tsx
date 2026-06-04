@@ -1,5 +1,6 @@
 "use client";
 import Image from "next/image";
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import BadgeRow from "@/components/BadgeRow";
 import BrawlerAvatar from "@/components/BrawlerAvatar";
@@ -12,6 +13,7 @@ import MapGrid from "@/components/MapGrid";
 import ViewModeToggle, { type ViewMode } from "@/components/ViewModeToggle";
 import { useI18n } from "@/components/I18nProvider";
 import { type Bucket } from "@/lib/buckets";
+import { brawlerHref } from "@/lib/slug";
 import type { StringKey } from "@/lib/i18n";
 import type {
   BanRow,
@@ -563,11 +565,14 @@ function RecColumn({
               <li
                 key={p.brawler}
                 className={
-                  "py-1.5 px-2 rounded transition " +
+                  "rounded transition hover:bg-panel " +
                   (top ? "bg-panel/60" : "")
                 }
               >
-                <div className="flex items-center gap-2">
+                <Link
+                  href={brawlerHref(p.brawler)}
+                  className="flex items-center gap-2 py-1.5 px-2"
+                >
                   <span className="text-[10px] text-muted w-4 text-right tabular-nums shrink-0">
                     {idx + 1}
                   </span>
@@ -588,8 +593,10 @@ function RecColumn({
                   >
                     {formatValue(p)}
                   </span>
+                </Link>
+                <div className="px-2 pb-1.5">
+                  <BadgeRow badges={p.badges} byCube={byCube} />
                 </div>
-                <BadgeRow badges={p.badges} byCube={byCube} />
               </li>
             );
           })}
@@ -645,35 +652,37 @@ function BansPanel({
           const br = byCube.get(b.brawler);
           const tier = i < 3 ? "text-bad" : i < 6 ? "text-accent" : "text-muted";
           return (
-            <li
-              key={b.brawler}
-              className="flex items-center gap-2 py-1.5"
-            >
-              <span className={"w-5 text-right text-xs font-bold " + tier}>
-                {i + 1}
-              </span>
-              <BrawlerAvatar
-                brawler={br}
-                cubeName={b.brawler}
-                size={28}
-                className="!rounded-md"
-              />
-              <div className="min-w-0 flex-1">
-                <div className="text-xs font-medium truncate">
-                  {br?.name ?? b.brawler}
+            <li key={b.brawler} className="rounded hover:bg-panel">
+              <Link
+                href={brawlerHref(b.brawler)}
+                className="flex items-center gap-2 py-1.5 px-1"
+              >
+                <span className={"w-5 text-right text-xs font-bold " + tier}>
+                  {i + 1}
+                </span>
+                <BrawlerAvatar
+                  brawler={br}
+                  cubeName={b.brawler}
+                  size={28}
+                  className="!rounded-md"
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="text-xs font-medium truncate">
+                    {br?.name ?? b.brawler}
+                  </div>
+                  <div className="h-1 mt-1 bg-panel2 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-bad/70"
+                      style={{
+                        width: `${(b.banScore / maxScore) * 100}%`,
+                      }}
+                    />
+                  </div>
                 </div>
-                <div className="h-1 mt-1 bg-panel2 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-bad/70"
-                    style={{
-                      width: `${(b.banScore / maxScore) * 100}%`,
-                    }}
-                  />
+                <div className="text-[10px] text-good tabular-nums">
+                  {(b.winRate * 100).toFixed(0)}%
                 </div>
-              </div>
-              <div className="text-[10px] text-good tabular-nums">
-                {(b.winRate * 100).toFixed(0)}%
-              </div>
+              </Link>
             </li>
           );
         })}

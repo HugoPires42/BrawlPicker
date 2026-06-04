@@ -15,13 +15,18 @@ then fills in enemy and ally slots as the draft unfolds. The app shows in
 real time: (a) the top counters of each picked enemy, (b) the top bans for
 the map, (c) four ranked columns of suggestions (Combined AI / Best on map
 / Ally synergy / Enemy counters), and (d) explanatory badges on every
-suggestion. The data comes from **brawltime.ninja's Cube.js backend** (free,
-public, but Cloudflare-protected) and from **Brawlify** (open JSON). A
-self-trained Matrix Factorization model lives at `data/model-{bucket}.json`
-and is loaded into memory at runtime. Three ELO buckets exist
-(`all` / `diamond` / `mythic`), each with its own model and its own runtime
-caches. Deployment target is **Render free tier** with a **Cloudflare
-Worker proxy** in front of brawltime to bypass datacenter IP blocking.
+suggestion. A **Brawlers wiki** section (one detail page per brawler)
+shows the optimal build (gadget + star power + gears), the best ranked
+maps, top synergies, hardest matchups, and curated "how to play" /
+"how to play against" tips. The data comes from **brawltime.ninja's
+Cube.js backend** (free, public, but Cloudflare-protected) and from
+**Brawlify** (open JSON). A self-trained Matrix Factorization model lives
+at `data/model-{bucket}.json` and is loaded into memory at runtime. Three
+ELO buckets exist (`all` / `diamond` / `mythic`), each with its own model
+and its own runtime caches. Deployment target is **Render free tier**
+with a **Cloudflare Worker proxy** in front of brawltime to bypass
+datacenter IP blocking. Every brawler portrait shown in the draft page
+(suggestions, bans, per-enemy counters) is a `Link` to its wiki page.
 
 ---
 
@@ -54,6 +59,9 @@ RAM. Sleep on Render wipes the caches → first request after sleep takes
 │  Browser (React + Tailwind)                                        │
 │   app/draft/page.tsx (state machine: mode → map → draft)           │
 │   app/how-it-works/page.tsx (educational, illustrated)             │
+│   app/wiki/page.tsx (redirects to /wiki/brawlers)                  │
+│   app/wiki/brawlers/page.tsx (browse / search / filter)            │
+│   app/wiki/brawlers/[slug]/page.tsx (per-brawler detail)           │
 │   components/* : ModePicker, MapGrid, BrawlerGrid, BrawlerSlot,    │
 │                  BrawlerAvatar, BucketSelector, ViewModeToggle,    │
 │                  LangSwitcher, BadgeRow, Logo, AppShell, …         │
@@ -78,6 +86,14 @@ RAM. Sleep on Render wipes the caches → first request after sleep takes
 │       • modelLoaded         (boolean — did the bucket's model      │
 │                              cover this specific map?)             │
 │   /api/bans           ← exposed for debug; called internally       │
+│   /api/wiki/brawler/  ← per-brawler stats:                         │
+│       [slug]                • detail + class + description          │
+│                             • bestBuild (gadget/SP/gears w/ names) │
+│                             • bestMaps[] (image + WR + mode)       │
+│                             • bestAllies[] (self-excluded)         │
+│                             • worstEnemies[] / bestEnemies[]       │
+│                             • baseline (global WR)                 │
+│                             • tips (FR + EN, curated or fallback)  │
 └────────────────────────────────────────────────────────────────────┘
                          │              │
                          ▼              ▼
@@ -129,9 +145,13 @@ brawlstar/
 │   │   ├── brawlers/route.ts             # GET — also fires all-bucket warm
 │   │   ├── draft-ai/route.ts             # ★ main endpoint, see §10
 │   │   ├── maps/route.ts                 # GET ?ranked=true
-│   │   └── modes/route.ts                # GET
+│   │   ├── modes/route.ts                # GET
+│   │   └── wiki/brawler/[slug]/route.ts  # per-brawler stats + tips
 │   ├── draft/page.tsx                    # ★ 3-step state machine
 │   ├── how-it-works/page.tsx             # Illustrated explanations
+│   ├── wiki/page.tsx                     # Redirects to /wiki/brawlers
+│   ├── wiki/brawlers/page.tsx            # Grid of all brawlers
+│   ├── wiki/brawlers/[slug]/page.tsx     # ★ Brawler detail page
 │   ├── icon.svg                          # Favicon (auto-detected by Next)
 │   ├── layout.tsx                        # Wraps with I18nProvider + AppShell
 │   ├── page.tsx                          # Just redirects to /draft
@@ -160,6 +180,7 @@ brawlstar/
 │   ├── aliases.ts                        # Cube name → canonical (renames)
 │   ├── bans.ts                           # getBansForMap()
 │   ├── baseline.ts                       # Per-brawler global WR (for ΔWR)
+│   ├── brawlerTips.ts                    # Curated + class "how to play" tips
 │   ├── brawlify.ts                       # getBrawlers() + getMaps() + cache
 │   ├── buckets.ts                        # ELO bucket meta
 │   ├── cube.ts                           # JWT auth + cubeQuery() + cache
@@ -169,7 +190,9 @@ brawlstar/
 │   ├── ranked.ts                         # Filter maps to current ranked rotation
 │   ├── removed.ts                        # Brawlers that no longer exist in-game
 │   ├── roleBalance.ts                    # Class-based suggestion adjustment
-│   └── types.ts                          # Shared TypeScript types
+│   ├── slug.ts                           # Client-safe slugify + brawlerHref
+│   ├── types.ts                          # Shared TypeScript types
+│   └── wikiData.ts                       # Cube queries for per-brawler stats
 │
 ├── scripts/                              # CLI utilities, run via tsx
 │   ├── extract.ts                        # Cube → data/training/raw-{bucket}.json
@@ -340,6 +363,51 @@ its own baseline cache.
   class with 2+ allies already.
 - Applied only on the Combined IA column. Surfaces as a `missingRole`
   badge when relevant.
+
+### `lib/wikiData.ts` — per-brawler stats for the wiki
+
+- `getBrawlerDetail(id)` — Brawlify `/v1/brawlers/{id}` for gadget/SP names
+- `bestGadgets(brawler, trophyMin)` — cube `gadget` cube, top 2 by WR
+  (excludes id=0 which represents "no gadget equipped")
+- `bestStarPowers(...)` / `bestGears(...)` — same shape
+- `bestMapsForBrawler(...)` — top maps by WR, **filtered to current ranked
+  rotation** (we join with `getRankedMaps()`)
+- `bestAlliesForBrawler(...)` — `brawlerAllies` cube. **Excludes self**: the
+  cube reports `(B, B)` pairings in showdown / pet-pick modes which would
+  pollute the synergy list.
+- `worstMatchupsForBrawler(...)` / `easiestMatchupsForBrawler(...)` —
+  `brawlerEnemies` sorted ascending / descending
+- `topBrawlersOnMap(mode, map, trophyMin)` — used by /wiki/brawlers/[slug]
+  for "best maps" cross-references (legacy helper kept for completeness)
+- `slugify` + `findBrawlerBySlug` + `findMapBySlug` — slug helpers
+- All cube queries respect aliases (cube name → canonical) and remove
+  the brawlers in `lib/removed.ts`
+- Gear names are NOT in Brawlify's public endpoints anymore; a hardcoded
+  map (`GEAR_NAMES`) lives at the top of the file. Add new gear IDs there
+  when Supercell ships them.
+
+### `lib/brawlerTips.ts` — "how to play" content
+
+- `BRAWLER_TIPS: Record<UPPERCASE_NAME, { fr, en }>` — curated entries
+  for ~12 popular brawlers (Edgar, Mortis, Piper, Shelly, Bull, Frank,
+  Bo, Dynamike, Poco, Damian, Glowy, Colt). Each has `howToPlay` and
+  `howToPlayAgainst` in both locales.
+- `CLASS_TIPS: Record<className, { fr, en }>` — generic fallback per
+  Brawlify class (Assassin, Marksman, Tank, Damage Dealer, Support,
+  Controller, Artillery).
+- `getTips(brawlerCubeName, className)` returns the curated tips if
+  they exist, else the class default, else a generic fallback.
+- The API embeds the full `{ fr, en }` object; the client picks the
+  locale at render time from the `useI18n()` hook.
+- Maintenance: add a curated entry when a brawler's playstyle is too
+  specific for the class default. ~3 sentences each, two locales.
+
+### `lib/slug.ts` — client-safe slug helpers
+
+- `slugify(s)` and `brawlerHref(cubeName)`. Pure functions, no server
+  imports — safe to use in `"use client"` components without dragging
+  Node modules into the client bundle. Re-exported from `wikiData.ts`
+  for backwards compatibility.
 
 ### `lib/aiModel.ts` — Matrix Factorization runtime
 
@@ -550,6 +618,34 @@ The whole thing typically completes in 50-200 ms when all caches are
 warm. First hit on a cold bucket: 15-40 s.
 
 ---
+
+## 10b. The wiki
+
+URLs:
+- `/wiki` → redirects to `/wiki/brawlers`
+- `/wiki/brawlers` → searchable grid (filters by Brawlify class)
+- `/wiki/brawlers/[slug]` → per-brawler detail page
+
+The slug is derived from the cube name with `slugify()` (lowercase,
+spaces → dashes, punctuation stripped). Lookups iterate the brawler
+list to find a match — no need to reverse-slugify.
+
+Detail page sections:
+1. Header: portrait, class, rarity, baseline WR, Brawlify description,
+   bucket selector
+2. Best build (3 panels: gadget / star power / gears) with WR
+3. Best ranked maps (with map thumbnail)
+4. **Tips section**: two cards side by side — "How to play" (green) and
+   "How to play against" (red). Localised from `lib/brawlerTips.ts`.
+5. Strong synergies (cube `brawlerAllies`, self-excluded)
+6. Favourable matchups (high `brawlerEnemies` WR for this brawler)
+7. Hard counters (low `brawlerEnemies` WR for this brawler)
+
+**Every brawler shown in the draft page** (`MiniCounter` under each
+enemy, suggestions in `RecColumn`, `BansPanel` rows) is wrapped in a
+`Link` to `/wiki/brawlers/<slug>`. The slots themselves (enemy/ally
+picker slots) are **not** linked — they need their click action for
+the picker modal.
 
 ## 11. ELO buckets — three of everything
 
@@ -786,6 +882,30 @@ The most important context to know about *why* the code is the way it is.
 
 12. **Why no user accounts?**
     Same — out of scope. The app is a single-page tool.
+
+13. **Why a Brawlers wiki and not a separate Maps wiki?**
+    We initially built both. The maps wiki page only repackaged data
+    that was already shown in the draft view (top brawlers, bans).
+    The brawler wiki, by contrast, adds genuinely new data: build
+    optimisation (gadget/SP/gears WR), per-brawler ally/enemy lists,
+    and curated tips. So we removed the maps wiki, redirected `/wiki`
+    to `/wiki/brawlers`, and renamed the nav link from "Wiki" to
+    "Brawlers" to match.
+
+14. **Why curated + class-fallback tips instead of LLM generation?**
+    Curated text reads more authoritatively (it sounds like a player,
+    not a model). LLM generation at runtime adds latency and cost.
+    At build time it adds a dependency that's hard to maintain. The
+    chosen compromise — ~12 curated entries + 7 class fallbacks —
+    gives every brawler in the game a usable tip section while keeping
+    the data file small (~10 kB). When the meta shifts, edit
+    `lib/brawlerTips.ts` directly.
+
+15. **Why hardcoded gear names?**
+    Brawlify's `/v1/gears` endpoint returns 404. The Brawl Stars gear
+    catalog only changes when Supercell ships a new gear (a few times
+    a year). Inline the names in `lib/wikiData.ts` (`GEAR_NAMES`) and
+    update when needed. Cheap.
 
 ---
 

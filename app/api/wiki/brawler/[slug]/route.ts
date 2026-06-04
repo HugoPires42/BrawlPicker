@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { bucketTrophyMin, parseBucket } from "@/lib/buckets";
+import { getTips } from "@/lib/brawlerTips";
 import {
   bestAlliesForBrawler,
   bestGadgets,
@@ -117,5 +118,6 @@ export async function GET(
     bestAllies,
     worstEnemies,
     bestEnemies,
+    tips: getTips(brawler.cubeName, brawler.className),
   });
 }

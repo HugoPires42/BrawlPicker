@@ -1,5 +1,7 @@
 "use client";
+import Link from "next/link";
 import BrawlerAvatar from "./BrawlerAvatar";
+import { brawlerHref } from "@/lib/slug";
 import type { Brawler } from "@/lib/types";
 
 type Props = {
@@ -10,7 +12,6 @@ type Props = {
 
 function displayName(b: Brawler | undefined, cubeName: string): string {
   if (b) return b.name;
-  // Pretty-case fallback for missing brawler ("MR. P" → "Mr. P")
   return cubeName
     .toLowerCase()
     .replace(/\b[a-z]/g, (c) => c.toUpperCase());
@@ -20,9 +21,10 @@ export default function MiniCounter({ brawler, cubeName, winRate }: Props) {
   const pct = (winRate * 100).toFixed(0);
   const strong = winRate >= 0.6;
   return (
-    <div
+    <Link
+      href={brawlerHref(cubeName)}
       className={
-        "flex items-center gap-2 px-1.5 py-1 rounded-md border bg-panel2/80 " +
+        "flex items-center gap-2 px-1.5 py-1 rounded-md border bg-panel2/80 transition hover:border-accent hover:bg-panel2 " +
         (strong ? "border-good/40" : "border-border")
       }
     >
@@ -37,6 +39,6 @@ export default function MiniCounter({ brawler, cubeName, winRate }: Props) {
       >
         {pct}%
       </div>
-    </div>
+    </Link>
   );
 }

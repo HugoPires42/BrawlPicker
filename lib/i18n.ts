@@ -424,6 +424,14 @@ export const STRINGS = {
     en: "Favourable matchups",
   },
   "wiki.brawler.tips": { fr: "Conseils de jeu", en: "How to play" },
+  "wiki.brawler.tips.play": {
+    fr: "Comment le jouer",
+    en: "How to play it",
+  },
+  "wiki.brawler.tips.playAgainst": {
+    fr: "Comment jouer contre",
+    en: "How to play against it",
+  },
   "wiki.brawler.noStats": {
     fr: "Pas encore assez de data pour ce brawler.",
     en: "Not enough data for this brawler yet.",

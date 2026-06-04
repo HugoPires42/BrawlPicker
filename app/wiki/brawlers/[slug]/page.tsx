@@ -50,6 +50,10 @@ type BrawlerPayload = {
   bestAllies: NamedWR[];
   worstEnemies: NamedWR[];
   bestEnemies: NamedWR[];
+  tips: {
+    fr: { howToPlay: string; howToPlayAgainst: string };
+    en: { howToPlay: string; howToPlayAgainst: string };
+  };
 };
 
 export default function BrawlerDetail({
@@ -58,7 +62,7 @@ export default function BrawlerDetail({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [data, setData] = useState<BrawlerPayload | null>(null);
   const [bucket, setBucket] = useState<Bucket>("all");
   const [allBrawlers, setAllBrawlers] = useState<Brawler[]>([]);
@@ -237,6 +241,28 @@ export default function BrawlerDetail({
               </li>
             ))}
           </ul>
+        </section>
+      )}
+
+      {/* Tips */}
+      {data.tips && (
+        <section className="grid md:grid-cols-2 gap-4">
+          <div className="card border-good/30">
+            <h2 className="text-sm uppercase tracking-wide text-good mb-2">
+              {t("wiki.brawler.tips.play")}
+            </h2>
+            <p className="text-sm leading-relaxed text-muted">
+              {data.tips[locale].howToPlay}
+            </p>
+          </div>
+          <div className="card border-bad/30">
+            <h2 className="text-sm uppercase tracking-wide text-bad mb-2">
+              {t("wiki.brawler.tips.playAgainst")}
+            </h2>
+            <p className="text-sm leading-relaxed text-muted">
+              {data.tips[locale].howToPlayAgainst}
+            </p>
+          </div>
         </section>
       )}
 

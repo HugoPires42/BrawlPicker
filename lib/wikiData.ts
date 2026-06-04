@@ -5,17 +5,9 @@ import { isRemoved } from "./removed";
 import { getRankedMaps } from "./ranked";
 import { getBrawlers, getMaps } from "./brawlify";
 import type { Brawler, GameMap } from "./types";
+import { slugify } from "./slug";
 
-/* ─────────────────────────── slugs ──────────────────────────────── */
-
-export function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .replace(/[^\w\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+export { slugify };
 
 export function findBrawlerBySlug(
   brawlers: Brawler[],
