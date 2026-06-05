@@ -88,12 +88,20 @@ RAM. Sleep on Render wipes the caches → first request after sleep takes
 │   /api/bans           ← exposed for debug; called internally       │
 │   /api/wiki/brawler/  ← per-brawler stats:                         │
 │       [slug]                • detail + class + description          │
-│                             • bestBuild (gadget/SP/gears w/ names) │
+│                             • bestBuild (gadget/SP/gears w/ names  │
+│                               AND imageUrl)                        │
 │                             • bestMaps[] (image + WR + mode)       │
 │                             • bestAllies[] (self-excluded)         │
 │                             • worstEnemies[] / bestEnemies[]       │
 │                             • baseline (global WR)                 │
 │                             • tips (FR + EN, curated or fallback)  │
+│   /api/player/[tag]   ← Supercell API proxy:                       │
+│                             • player name + tag                    │
+│                             • all owned brawlers + power           │
+│                             • pre-computed ownedLevel11[] cube     │
+│                               name list, for owned-only filter     │
+│                             • requires BRAWLSTARS_TOKEN env var,   │
+│                               IP-locked to deployment host         │
 └────────────────────────────────────────────────────────────────────┘
                          │              │
                          ▼              ▼
@@ -152,6 +160,7 @@ brawlstar/
 │   ├── wiki/page.tsx                     # Redirects to /wiki/brawlers
 │   ├── wiki/brawlers/page.tsx            # Grid of all brawlers
 │   ├── wiki/brawlers/[slug]/page.tsx     # ★ Brawler detail page
+│   ├── api/player/[tag]/route.ts         # Supercell API proxy (player)
 │   ├── icon.svg                          # Favicon (auto-detected by Next)
 │   ├── layout.tsx                        # Wraps with I18nProvider + AppShell
 │   ├── page.tsx                          # Just redirects to /draft
@@ -172,6 +181,7 @@ brawlstar/
 │   ├── MapPicker.tsx                     # Alternative modal map picker
 │   ├── MiniCounter.tsx                   # Mini counter card under enemy slot
 │   ├── ModePicker.tsx                    # Step-1 mode picker
+│   ├── PlayerSettings.tsx                # Tag input + ownedOnly checkbox
 │   ├── ViewModeToggle.tsx                # Pure-WR / Hard-counters toggle
 │   └── WrBar.tsx                         # Win-rate progress bar
 │
@@ -191,6 +201,8 @@ brawlstar/
 │   ├── removed.ts                        # Brawlers that no longer exist in-game
 │   ├── roleBalance.ts                    # Class-based suggestion adjustment
 │   ├── slug.ts                           # Client-safe slugify + brawlerHref
+│   ├── brawlerNames.ts                   # displayBrawlerName helper +
+│   │                                       FRENCH_BRAWLER_OVERRIDES map
 │   ├── types.ts                          # Shared TypeScript types
 │   └── wikiData.ts                       # Cube queries for per-brawler stats
 │
@@ -745,9 +757,16 @@ succeeds.
 Single-file Worker. Routes:
 - `POST /trpc/<path>` → `https://brawltime.ninja/api/trpc/<path>`
 - `POST /cube/<path>` → `https://cube.brawltime.ninja/<path>`
+- `GET  /supercell/<path>` → `https://api.brawlstars.com/<path>` (for the
+  `/api/player/[tag]` feature — Supercell tokens are IP-locked, and CF
+  Worker IPs are stable enough to whitelist)
+- `GET  /whoami` → returns the Worker's egress IP via api.ipify.org. Use
+  this when the Supercell call still 403s: ping `/whoami`, take that IP
+  (or its /24 range), add it to the Supercell token CIDR list.
 
-Adds `Origin` + `Referer` headers, strips CF-internal headers
-(`cf-connecting-ip`, etc.), passes through the body as `arrayBuffer`.
+Brawltime calls get an `Origin` + `Referer` header rewrite. Supercell
+calls only pass through `Authorization`. CF-internal headers
+(`cf-connecting-ip`, etc.) are stripped.
 
 ### Deploying the Worker
 
@@ -780,9 +799,13 @@ Render config:
 - **Start command**: `npm run start`
 - **Region**: Frankfurt (lowest latency to brawltime, less bot-blocking)
 - **Env vars**:
-  - `BRAWLTIME_PROXY=https://<your-worker>.workers.dev`
-  - (Optional) `BRAWLSTARS_TOKEN=...` — only if running the v2 scraper
-    inside the deployed service, which we don't
+  - `BRAWLTIME_PROXY=https://<your-worker>.workers.dev` (required —
+    bypasses Cloudflare blocking and also routes Supercell calls)
+  - `BRAWLSTARS_TOKEN=...` (only if you want the "owned brawlers"
+    feature on the deployed app — create the token on
+    developer.brawlstars.com with the CIDRs that match your Cloudflare
+    Worker's egress IPs; ping `${BRAWLTIME_PROXY}/whoami` to discover
+    them)
 
 API routes must be `export const dynamic = "force-dynamic";` — otherwise
 Next tries to pre-render them at build time, hits the cube, and fails
@@ -906,6 +929,26 @@ The most important context to know about *why* the code is the way it is.
     catalog only changes when Supercell ships a new gear (a few times
     a year). Inline the names in `lib/wikiData.ts` (`GEAR_NAMES`) and
     update when needed. Cheap.
+
+16. **Why the "owned only" filter goes through the Supercell API?**
+    No third-party site reliably exposes a player's owned-brawlers list
+    with power levels. Brawltime has player pages but their cube isn't
+    structured for this lookup. The official API is the only clean source.
+    Trade-off: requires a Supercell developer token, which is **IP-locked**
+    on Supercell's side. The user's home IP works in dev; on Render the
+    token must be regenerated with the Render egress IP in its CIDR
+    allow-list. Without a valid token, `/api/player/[tag]` returns 503
+    (TOKEN_MISSING) or 403 (TOKEN_IP) and the UI shows a clear error —
+    the rest of the app keeps working.
+
+17. **Why French brawler names use an override map and not Brawlify's
+    `?lang=fr`?**
+    Brawlify ignores the lang parameter — it returns identical English
+    names regardless of locale. Tested locally. The reason: Brawl Stars
+    proper nouns are universal across the game (Damian, Edgar, El Primo,
+    8-Bit). So in practice the override map (`lib/brawlerNames.ts`) stays
+    empty. It's kept as infrastructure in case Supercell ever localises a
+    specific brawler in a future season — one new key/value covers it.
 
 ---
 

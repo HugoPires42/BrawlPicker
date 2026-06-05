@@ -361,6 +361,55 @@ export const STRINGS = {
     en: "First load for this bucket — 20-40 s while the data warms up.",
   },
 
+  // Player section (Supercell API integration)
+  "player.title": {
+    fr: "Mon compte Brawl Stars",
+    en: "My Brawl Stars account",
+  },
+  "player.subtitle": {
+    fr: "Charge tes brawlers pour ne suggérer que ceux que tu possèdes au niveau 11.",
+    en: "Load your brawlers to only suggest the ones you own at power 11.",
+  },
+  "player.tagPlaceholder": {
+    fr: "Ton tag (ex: #QPY88C2PR)",
+    en: "Your tag (e.g. #QPY88C2PR)",
+  },
+  "player.load": { fr: "Charger", en: "Load" },
+  "player.loading": { fr: "Chargement…", en: "Loading…" },
+  "player.help": {
+    fr: "Trouve ton tag dans le profil du jeu (sous ton pseudo).",
+    en: "Find your tag in the game profile (below your name).",
+  },
+  "player.connected": {
+    fr: "Connecté",
+    en: "Connected",
+  },
+  "player.brawlers11": {
+    fr: "brawlers niveau 11+",
+    en: "brawlers at power 11+",
+  },
+  "player.forget": { fr: "Déconnexion", en: "Disconnect" },
+  "player.ownedOnly": {
+    fr: "Ne suggérer que mes brawlers niveau 11+",
+    en: "Only suggest brawlers I own at power 11+",
+  },
+  "player.error.notFound": {
+    fr: "Joueur introuvable — vérifie le tag.",
+    en: "Player not found — check the tag.",
+  },
+  "player.error.tokenMissing": {
+    fr: "Fonctionnalité non configurée sur le serveur (token Brawl Stars absent).",
+    en: "Not configured on this server (Brawl Stars token missing).",
+  },
+  "player.error.tokenIP": {
+    fr: "Token Brawl Stars non autorisé depuis ce serveur. Régénère-le avec l'IP egress de Render.",
+    en: "Brawl Stars token not allowed from this server. Regenerate it with Render's egress IP.",
+  },
+  "player.error.generic": {
+    fr: "Erreur lors de la récupération du compte.",
+    en: "Failed to fetch account.",
+  },
+
   // Badge labels (the {n} / {name} placeholders are replaced client-side)
   "badge.topCounter": { fr: "+{n} pp vs", en: "+{n} pp vs" },
   "badge.topMap": { fr: "Top map", en: "Top map" },
