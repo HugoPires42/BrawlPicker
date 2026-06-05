@@ -1,5 +1,6 @@
 "use client";
 import { useI18n } from "./I18nProvider";
+import { displayBrawlerName } from "@/lib/brawlerNames";
 import type { Brawler, Badge } from "@/lib/types";
 import type { StringKey } from "@/lib/i18n";
 
@@ -28,13 +29,8 @@ const TONE: Record<Badge["kind"], string> = {
   metaPick: "bg-muted/20 text-muted border-muted/30",
 };
 
-function pretty(cubeName: string, byCube: Map<string, Brawler>): string {
-  const b = byCube.get(cubeName);
-  return b?.name ?? cubeName.toLowerCase().replace(/\b[a-z]/g, (c) => c.toUpperCase());
-}
-
 export default function BadgeRow({ badges, byCube }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   if (!badges || badges.length === 0) return null;
 
   return (
@@ -45,12 +41,16 @@ export default function BadgeRow({ badges, byCube }: Props) {
           const v = String(b.value ?? "");
           const [pp, against] = v.split("|");
           const base = t("badge.topCounter").replace("{n}", pp);
-          text = against ? `${base} ${pretty(against, byCube)}` : base;
+          text = against
+            ? `${base} ${displayBrawlerName(byCube.get(against), against, locale)}`
+            : base;
         } else if (b.kind === "topSynergy") {
           const v = String(b.value ?? "");
           const [pp, with_] = v.split("|");
           const base = t("badge.topSynergy") + " " + (pp ? `+${pp}` : "");
-          text = with_ ? `${base} · ${pretty(with_, byCube)}` : base;
+          text = with_
+            ? `${base} · ${displayBrawlerName(byCube.get(with_), with_, locale)}`
+            : base;
         } else if (b.kind === "topMap") {
           text = t("badge.topMap");
         } else if (b.kind === "missingRole") {

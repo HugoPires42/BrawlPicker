@@ -1,6 +1,8 @@
 "use client";
 import Link from "next/link";
 import BrawlerAvatar from "./BrawlerAvatar";
+import { useI18n } from "./I18nProvider";
+import { displayBrawlerName } from "@/lib/brawlerNames";
 import { brawlerHref } from "@/lib/slug";
 import type { Brawler } from "@/lib/types";
 
@@ -8,16 +10,8 @@ type Props = {
   brawler: Brawler | undefined;
   cubeName: string;
   winRate: number;
-  /** If provided, clicking the card calls this instead of navigating. */
   onSelect?: (cubeName: string) => void;
 };
-
-function displayName(b: Brawler | undefined, cubeName: string): string {
-  if (b) return b.name;
-  return cubeName
-    .toLowerCase()
-    .replace(/\b[a-z]/g, (c) => c.toUpperCase());
-}
 
 export default function MiniCounter({
   brawler,
@@ -25,6 +19,7 @@ export default function MiniCounter({
   winRate,
   onSelect,
 }: Props) {
+  const { locale } = useI18n();
   const pct = (winRate * 100).toFixed(0);
   const strong = winRate >= 0.6;
   const cls =
@@ -35,7 +30,7 @@ export default function MiniCounter({
       <BrawlerAvatar brawler={brawler} cubeName={cubeName} size={26} />
       <div className="min-w-0 flex-1">
         <div className="text-[11px] truncate">
-          {displayName(brawler, cubeName)}
+          {displayBrawlerName(brawler, cubeName, locale)}
         </div>
       </div>
       <div

@@ -2,6 +2,7 @@
 import Image from "next/image";
 import type { Brawler } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
+import { displayBrawlerName } from "@/lib/brawlerNames";
 
 type Props = {
   brawler: Brawler | null;
@@ -20,7 +21,7 @@ export default function BrawlerSlot({
   variant = "enemy",
   size = "md",
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const ring = variant === "enemy" ? "ring-bad/50" : "ring-good/50";
   const accent = variant === "enemy" ? "text-bad" : "text-good";
   const dim = size === "lg" ? "w-24 h-24" : "w-20 h-20";
@@ -60,7 +61,9 @@ export default function BrawlerSlot({
       <div className="text-xs h-4 truncate max-w-[100px] flex items-center gap-1">
         {brawler && (
           <>
-            <span className="truncate">{brawler.name}</span>
+            <span className="truncate">
+              {displayBrawlerName(brawler, brawler.cubeName, locale)}
+            </span>
             {onClear && (
               <button
                 onClick={onClear}

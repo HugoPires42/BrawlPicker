@@ -75,13 +75,27 @@ export async function GET(
     };
   });
 
-  const gadgetById = new Map<number, { name: string; description: string }>();
+  const gadgetById = new Map<
+    number,
+    { name: string; description: string; imageUrl?: string }
+  >();
   for (const g of detail?.gadgets ?? []) {
-    gadgetById.set(g.id, { name: g.name, description: g.description });
+    gadgetById.set(g.id, {
+      name: g.name,
+      description: g.description,
+      imageUrl: g.imageUrl,
+    });
   }
-  const spById = new Map<number, { name: string; description: string }>();
+  const spById = new Map<
+    number,
+    { name: string; description: string; imageUrl?: string }
+  >();
   for (const sp of detail?.starPowers ?? []) {
-    spById.set(sp.id, { name: sp.name, description: sp.description });
+    spById.set(sp.id, {
+      name: sp.name,
+      description: sp.description,
+      imageUrl: sp.imageUrl,
+    });
   }
 
   return NextResponse.json({
@@ -99,16 +113,24 @@ export async function GET(
     baseline,
     bucket,
     bestBuild: {
-      gadgets: gadgets.map((g) => ({
-        ...g,
-        name: gadgetById.get(Number(g.id))?.name,
-        description: gadgetById.get(Number(g.id))?.description,
-      })),
-      starPowers: starPowers.map((s) => ({
-        ...s,
-        name: spById.get(Number(s.id))?.name,
-        description: spById.get(Number(s.id))?.description,
-      })),
+      gadgets: gadgets.map((g) => {
+        const meta = gadgetById.get(Number(g.id));
+        return {
+          ...g,
+          name: meta?.name,
+          description: meta?.description,
+          imageUrl: meta?.imageUrl,
+        };
+      }),
+      starPowers: starPowers.map((s) => {
+        const meta = spById.get(Number(s.id));
+        return {
+          ...s,
+          name: meta?.name,
+          description: meta?.description,
+          imageUrl: meta?.imageUrl,
+        };
+      }),
       gears: gears.map((g) => ({
         ...g,
         name: gearNames.get(Number(g.id)),

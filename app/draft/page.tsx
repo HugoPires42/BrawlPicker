@@ -10,10 +10,12 @@ import BucketSelector from "@/components/BucketSelector";
 import MiniCounter from "@/components/MiniCounter";
 import ModePicker from "@/components/ModePicker";
 import MapGrid from "@/components/MapGrid";
+import PlayerSettings from "@/components/PlayerSettings";
 import ViewModeToggle, { type ViewMode } from "@/components/ViewModeToggle";
 import { useI18n } from "@/components/I18nProvider";
 import { type Bucket } from "@/lib/buckets";
 import { slugify } from "@/lib/slug";
+import { displayBrawlerName } from "@/lib/brawlerNames";
 import type { StringKey } from "@/lib/i18n";
 import type {
   BanRow,
@@ -68,6 +70,8 @@ export default function DraftPage() {
   const [viewMode, setViewMode] = useState<ViewMode>("raw");
   const [wikiSlug, setWikiSlug] = useState<string | null>(null);
   const openWiki = (cubeName: string) => setWikiSlug(slugify(cubeName));
+  const [ownedSet, setOwnedSet] = useState<Set<string>>(new Set());
+  const [ownedOnly, setOwnedOnly] = useState(false);
 
   const [pickerOpen, setPickerOpen] = useState(false);
   const [pickerTarget, setPickerTarget] = useState<SlotRef | null>(null);
@@ -340,6 +344,13 @@ export default function DraftPage() {
             </div>
           </section>
 
+          <PlayerSettings
+            ownedSet={ownedSet}
+            setOwnedSet={setOwnedSet}
+            ownedOnly={ownedOnly}
+            setOwnedOnly={setOwnedOnly}
+          />
+
           <RecommendationsPanel
             resp={resp}
             byCube={byCube}
@@ -348,6 +359,8 @@ export default function DraftPage() {
             bucket={bucket}
             viewMode={viewMode}
             onSelectBrawler={openWiki}
+            ownedSet={ownedSet}
+            ownedOnly={ownedOnly}
           />
         </div>
 
@@ -390,6 +403,8 @@ function RecommendationsPanel({
   bucket,
   viewMode,
   onSelectBrawler,
+  ownedSet,
+  ownedOnly,
 }: {
   resp: DraftResp | null;
   byCube: Map<string, Brawler>;
@@ -398,18 +413,26 @@ function RecommendationsPanel({
   bucket: Bucket;
   viewMode: ViewMode;
   onSelectBrawler: (cubeName: string) => void;
+  ownedSet: Set<string>;
+  ownedOnly: boolean;
 }) {
   const { t } = useI18n();
-  const recs = resp?.recommendations ?? [];
-  const byMap = resp?.topByMap ?? [];
-  const bySyn =
+  const filterOwned = (arr: ScoredCandidate[]) =>
+    ownedOnly && ownedSet.size > 0
+      ? arr.filter((p) => ownedSet.has(p.brawler))
+      : arr;
+  const recs = filterOwned(resp?.recommendations ?? []);
+  const byMap = filterOwned(resp?.topByMap ?? []);
+  const bySyn = filterOwned(
     viewMode === "delta"
       ? resp?.topBySynergyDelta ?? []
-      : resp?.topBySynergy ?? [];
-  const byCnt =
+      : resp?.topBySynergy ?? []
+  );
+  const byCnt = filterOwned(
     viewMode === "delta"
       ? resp?.topByCounterDelta ?? []
-      : resp?.topByCounter ?? [];
+      : resp?.topByCounter ?? []
+  );
   const synMetric: "synergy" | "delta" = viewMode === "delta" ? "delta" : "synergy";
   const cntMetric: "matchup" | "delta" = viewMode === "delta" ? "delta" : "matchup";
 
@@ -549,6 +572,7 @@ function RecColumn({
   isDelta?: boolean;
   onSelectBrawler: (cubeName: string) => void;
 }) {
+  const { locale } = useI18n();
   const toneClass =
     tone === "accent"
       ? "text-accent border-accent/40"
@@ -607,7 +631,7 @@ function RecColumn({
                     className="shrink-0"
                   />
                   <span className="text-xs font-medium flex-1 min-w-0 truncate">
-                    {b?.name ?? p.brawler}
+                    {displayBrawlerName(b, p.brawler, locale)}
                   </span>
                   <span
                     className={
@@ -652,7 +676,7 @@ function BansPanel({
   map: GameMap;
   onSelectBrawler: (cubeName: string) => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const bans = resp?.bans ?? [];
   const maxScore = bans.length > 0 ? bans[0].banScore : 1;
   return (
@@ -694,7 +718,7 @@ function BansPanel({
                 />
                 <div className="min-w-0 flex-1">
                   <div className="text-xs font-medium truncate">
-                    {br?.name ?? b.brawler}
+                    {displayBrawlerName(br, b.brawler, locale)}
                   </div>
                   <div className="h-1 mt-1 bg-panel2 rounded-full overflow-hidden">
                     <div

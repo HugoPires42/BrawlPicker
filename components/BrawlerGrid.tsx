@@ -3,6 +3,7 @@ import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
 import type { Brawler } from "@/lib/types";
 import { useI18n } from "./I18nProvider";
+import { displayBrawlerName } from "@/lib/brawlerNames";
 
 type Props = {
   open: boolean;
@@ -21,7 +22,7 @@ export default function BrawlerGrid({
   disabled,
   title,
 }: Props) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const [q, setQ] = useState("");
   const [cls, setCls] = useState<string>("__all__");
 
@@ -133,7 +134,7 @@ export default function BrawlerGrid({
                     />
                   </div>
                   <div className="text-[11px] font-medium truncate w-full text-center">
-                    {b.name}
+                    {displayBrawlerName(b, b.cubeName, locale)}
                   </div>
                 </button>
               );

@@ -3,9 +3,8 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import BrawlerAvatar from "./BrawlerAvatar";
-import BucketSelector from "./BucketSelector";
 import { useI18n } from "./I18nProvider";
-import { type Bucket } from "@/lib/buckets";
+import { displayBrawlerName } from "@/lib/brawlerNames";
 import type { Brawler } from "@/lib/types";
 
 type BuildItem = {
@@ -14,6 +13,7 @@ type BuildItem = {
   picks: number;
   name?: string;
   description?: string;
+  imageUrl?: string;
 };
 type MapHit = {
   mode: string;
@@ -38,7 +38,6 @@ type BrawlerPayload = {
     starPowers: { id: number; name: string; imageUrl: string }[];
   } | null;
   baseline: number | null;
-  bucket: Bucket;
   bestBuild: {
     gadgets: BuildItem[];
     starPowers: BuildItem[];
@@ -69,7 +68,6 @@ export default function BrawlerDetail({
 }: Props) {
   const { t, locale } = useI18n();
   const [data, setData] = useState<BrawlerPayload | null>(null);
-  const [bucket, setBucket] = useState<Bucket>("all");
   const [allBrawlers, setAllBrawlers] = useState<Brawler[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -82,11 +80,11 @@ export default function BrawlerDetail({
   useEffect(() => {
     setLoading(true);
     setData(null);
-    fetch(`/api/wiki/brawler/${slug}?bucket=${bucket}`)
+    fetch(`/api/wiki/brawler/${slug}`)
       .then((r) => r.json())
       .then((d) => setData(d))
       .finally(() => setLoading(false));
-  }, [slug, bucket]);
+  }, [slug]);
 
   const byCube = useMemo(
     () => new Map(allBrawlers.map((b) => [b.cubeName, b])),
@@ -132,7 +130,9 @@ export default function BrawlerDetail({
           />
         </div>
         <div className="flex-1 min-w-0">
-          <h1 className="text-3xl font-extrabold tracking-tight">{b.name}</h1>
+          <h1 className="text-3xl font-extrabold tracking-tight">
+            {displayBrawlerName(b, b.cubeName, locale)}
+          </h1>
           <div className="flex flex-wrap gap-3 mt-2 text-sm">
             {b.className && (
               <span>
@@ -169,9 +169,6 @@ export default function BrawlerDetail({
               {data.detail.description}
             </p>
           )}
-        </div>
-        <div className="shrink-0">
-          <BucketSelector value={bucket} onChange={setBucket} />
         </div>
       </header>
 
@@ -327,22 +324,40 @@ function BuildPanel({
       {items.length === 0 ? (
         <div className="text-[11px] text-muted">—</div>
       ) : (
-        <ul className="space-y-2">
+        <ul className="space-y-3">
           {items.map((it) => (
-            <li key={it.id} className="text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold truncate">
-                  {it.name ?? `#${it.id}`}
-                </span>
-                <span className="text-good font-bold tabular-nums shrink-0">
-                  {(it.winRate * 100).toFixed(1)}%
-                </span>
-              </div>
-              {it.description && (
-                <p className="text-[10px] text-muted mt-0.5 leading-relaxed line-clamp-3">
-                  {it.description}
-                </p>
+            <li key={it.id} className="text-xs flex gap-2.5">
+              {it.imageUrl ? (
+                <div className="relative w-12 h-12 rounded-md bg-panel/70 ring-1 ring-border shrink-0 overflow-hidden">
+                  <Image
+                    src={it.imageUrl}
+                    alt={it.name ?? ""}
+                    fill
+                    sizes="48px"
+                    className="object-contain p-1"
+                    unoptimized
+                  />
+                </div>
+              ) : (
+                <div className="w-12 h-12 rounded-md bg-panel/40 ring-1 ring-border shrink-0 flex items-center justify-center text-[9px] text-muted">
+                  —
+                </div>
               )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold truncate">
+                    {it.name ?? `#${it.id}`}
+                  </span>
+                  <span className="text-good font-bold tabular-nums shrink-0">
+                    {(it.winRate * 100).toFixed(1)}%
+                  </span>
+                </div>
+                {it.description && (
+                  <p className="text-[10px] text-muted mt-0.5 leading-relaxed line-clamp-3">
+                    {it.description}
+                  </p>
+                )}
+              </div>
             </li>
           ))}
         </ul>
@@ -366,6 +381,7 @@ function MatchupList({
   good: boolean;
   onPick?: (cubeName: string) => void;
 }) {
+  const { locale } = useI18n();
   return (
     <section className="card">
       <h3 className={"text-xs uppercase tracking-wide font-bold mb-3 " + tone}>
@@ -374,7 +390,7 @@ function MatchupList({
       <ul className="space-y-1.5">
         {items.map((m) => {
           const br = byCube.get(m.name);
-          const display = br?.name ?? m.name;
+          const display = displayBrawlerName(br, m.name, locale);
           return (
             <li key={m.name} className="flex items-center gap-2">
               <BrawlerAvatar
