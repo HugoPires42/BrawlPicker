@@ -22,20 +22,32 @@ function getCubeUrl(): string {
     : "https://cube.brawltime.ninja/cubejs-api/v1/load";
 }
 
-// Brawltime sits behind Cloudflare bot protection. From a datacenter IP
-// (Render, Vercel, etc.) we need the request to look identical to what
-// brawltime's own frontend sends from a real browser — same User-Agent,
-// same Origin/Referer, same Accept-* headers.
-const UA =
-  "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
-
+// Two header sets, chosen based on whether we go through the proxy worker:
+//
+//   - DIRECT to brawltime (local dev, no proxy env var):
+//     We need to *look like* the brawltime frontend so CF's bot challenge
+//     lets us in. Browser-style UA + Origin/Referer brawltime.
+//
+//   - VIA CLOUDFLARE WORKER PROXY (Render production):
+//     The worker REWRITES Origin/Referer itself before hitting brawltime.
+//     If we send a browser-style UA from the *outside*, CF flags the
+//     proxied request as a bot challenge ("Just a moment...") and 403s.
+//     Empirically tested with /api/debug/env probes — sending plain
+//     headers via the proxy works; sending browser headers gets 403.
 const BROWSER_HEADERS: Record<string, string> = {
-  "User-Agent": UA,
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
   Accept: "*/*",
   "Accept-Language": "en-US,en;q=0.9",
   Origin: "https://brawltime.ninja",
   Referer: "https://brawltime.ninja/",
 };
+function brawltimeHeaders(): Record<string, string> {
+  // If proxy is set we go via the worker — minimal headers only.
+  if (getProxy()) return {};
+  // Direct hit needs the browser-shaped headers to bypass CF.
+  return BROWSER_HEADERS;
+}
 
 type TokenCache = { token: string; expiresAt: number };
 let cached: TokenCache | null = null;
@@ -51,7 +63,7 @@ async function getToken(): Promise<string> {
       res = await fetch(getTokenUrl(), {
         method: "POST",
         headers: {
-          ...BROWSER_HEADERS,
+          ...brawltimeHeaders(),
           "Content-Type": "application/json",
         },
         body: "{}",
@@ -162,7 +174,7 @@ export async function cubeQuery<T extends CubeRow = CubeRow>(
       const res = await fetch(getCubeUrl(), {
         method: "POST",
         headers: {
-          ...BROWSER_HEADERS,
+          ...brawltimeHeaders(),
           Authorization: token,
           "Content-Type": "application/json",
         },
