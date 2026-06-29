@@ -1,13 +1,26 @@
 // If BRAWLTIME_PROXY is set (Cloudflare Worker URL), route all brawltime
 // traffic through it. This is necessary on datacenter hosts (Render, Vercel)
 // where Cloudflare blocks direct calls. See worker/worker.js for the proxy.
-const PROXY = process.env.BRAWLTIME_PROXY?.replace(/\/+$/, "");
-const CUBE_URL = PROXY
-  ? `${PROXY}/cube/cubejs-api/v1/load`
-  : "https://cube.brawltime.ninja/cubejs-api/v1/load";
-const TOKEN_URL = PROXY
-  ? `${PROXY}/trpc/auth.getToken`
-  : "https://brawltime.ninja/api/trpc/auth.getToken";
+//
+// IMPORTANT: env vars MUST be read inside the functions, not at module top
+// level. Next.js can evaluate top-level expressions during the build, when
+// BRAWLTIME_PROXY may not yet be in scope — that freezes the URL constants
+// to the direct (non-proxied) URLs, which then 403 on Render's IP at runtime.
+function getProxy(): string | undefined {
+  return process.env.BRAWLTIME_PROXY?.trim().replace(/\/+$/, "") || undefined;
+}
+function getTokenUrl(): string {
+  const proxy = getProxy();
+  return proxy
+    ? `${proxy}/trpc/auth.getToken`
+    : "https://brawltime.ninja/api/trpc/auth.getToken";
+}
+function getCubeUrl(): string {
+  const proxy = getProxy();
+  return proxy
+    ? `${proxy}/cube/cubejs-api/v1/load`
+    : "https://cube.brawltime.ninja/cubejs-api/v1/load";
+}
 
 // Brawltime sits behind Cloudflare bot protection. From a datacenter IP
 // (Render, Vercel, etc.) we need the request to look identical to what
@@ -35,7 +48,7 @@ async function getToken(): Promise<string> {
   let res: Response | null = null;
   for (let i = 0; i < 3; i++) {
     try {
-      res = await fetch(TOKEN_URL, {
+      res = await fetch(getTokenUrl(), {
         method: "POST",
         headers: {
           ...BROWSER_HEADERS,
@@ -146,7 +159,7 @@ export async function cubeQuery<T extends CubeRow = CubeRow>(
     const body = JSON.stringify({ query });
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const token = await getToken();
-      const res = await fetch(CUBE_URL, {
+      const res = await fetch(getCubeUrl(), {
         method: "POST",
         headers: {
           ...BROWSER_HEADERS,
