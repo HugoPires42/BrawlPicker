@@ -3,7 +3,16 @@ import { cubeQuery } from "@/lib/cube";
 
 export const dynamic = "force-dynamic";
 
-const FIX_MARKER = "fix-runtime-env-v2"; // bumps with every fix attempt
+const FIX_MARKER = "fix-runtime-env-v3"; // bumps with every fix attempt
+
+const BROWSER_HEADERS_TEST: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36",
+  Accept: "*/*",
+  "Accept-Language": "en-US,en;q=0.9",
+  Origin: "https://brawltime.ninja",
+  Referer: "https://brawltime.ninja/",
+};
 
 /**
  * Debug-only endpoint. Returns *non-sensitive* metadata about the env vars
@@ -47,6 +56,24 @@ export async function GET() {
     tokenProbe = { error: (e as Error).message };
   }
 
+  // Same URL, BUT with the browser headers cube.ts sends. Isolates whether
+  // the headers themselves cause the 403.
+  let tokenProbeWithHeaders: Record<string, unknown> = { skipped: true };
+  try {
+    const r = await fetch(tokenUrl, {
+      method: "POST",
+      headers: {
+        ...BROWSER_HEADERS_TEST,
+        "Content-Type": "application/json",
+      },
+      body: "{}",
+    });
+    const body = (await r.text()).slice(0, 200);
+    tokenProbeWithHeaders = { status: r.status, bodyPreview: body };
+  } catch (e) {
+    tokenProbeWithHeaders = { error: (e as Error).message };
+  }
+
   // Real test: actually go through the cube.ts module like /api/modes does.
   let cubeProbe: Record<string, unknown> = { skipped: true };
   try {
@@ -73,6 +100,7 @@ export async function GET() {
     },
     resolvedTokenUrl: tokenUrl,
     inlineTokenProbe: tokenProbe,
+    inlineTokenProbeWithBrowserHeaders: tokenProbeWithHeaders,
     cubeModuleProbe: cubeProbe,
   });
 }
